@@ -1,4 +1,3 @@
-% Teste de classificação de artigo (test_classifyArticle.m)
 function test_classifyArticle()
     % Carregar o dataset
     data = readtable('FakeNewsNet.csv', 'TextType', 'string');
@@ -8,7 +7,8 @@ function test_classifyArticle()
     % Simulando a classificação dos primeiros 5 artigos no dataset
     for i = 1:5
         title = data.title(i);  % Pega o título do artigo
-        result = classifyArticle(title);  % Chama a função de classificação
+        url = data.news_url(i);  % Pega a URL do artigo
+        result = classifyArticle(title, url);  % Chama a função de classificação
         fprintf('Título: %s -> Classificação: %d\n', title, result);  % 1 é real, 0 é fake
     end
 end
