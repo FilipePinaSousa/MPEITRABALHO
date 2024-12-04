@@ -24,26 +24,22 @@ function classifyDomains(databaseFile, naiveBayesModel)
     
     % Process each article
     for i = 1:height(data)
-        % Extract domain from the source_domain if it exists, otherwise extract from URL
-        if ~isempty(data.source_domain{i}) && ~strcmp(data.source_domain{i}, 'NA')
-            domain = data.source_domain{i};  % Use source_domain directly
-        else
-            domain = extractDomain(data.url{i});  % Extract domain from URL if source_domain is empty
-        end
+        % Extract domain from URL
+        domain = extractDomain(data.s(i));
         
-        % Skip invalid domains
+        % Skip invalid URLs
         if strcmp(domain, 'Invalid URL')
             continue;
         end
         
-        % Get true label for the article (assuming the correct label column is 'real')
-        trueLabel = data.real(i);  % Change this line to the correct label column name
+        % Get true label for the article (assuming 'label' is 1 for true, 0 for fake)
+        trueLabel = data.label(i);
         
         % Get the feature vector for the article (top words only)
         featureVector = bagCounts(i, :);  % Extract the feature vector for the i-th article
         
         % Make prediction using Naive Bayes model
-        prediction = predictNaiveBayes(model, featureVector);
+        prediction = predictNaiveBayesModel(model, featureVector);
         
         % Determine trustworthiness based on prediction
         isTrusted = prediction == 1;  % If predicted as 'true' (1), it is trusted
@@ -60,14 +56,16 @@ function classifyDomains(databaseFile, naiveBayesModel)
         end
         
         % Optionally display prediction vs actual
-        trueLabelStr = 'untrusted';
         if trueLabel == 1
             trueLabelStr = 'trusted';
+        else
+            trueLabelStr = 'untrusted';
         end
         
-        predictionStr = 'untrusted';
         if isTrusted
             predictionStr = 'trusted';
+        else
+            predictionStr = 'untrusted';
         end
         
         fprintf('Domain: %s, True Label: %s, Predicted: %s\n', domain, trueLabelStr, predictionStr);
@@ -86,7 +84,7 @@ function classifyDomains(databaseFile, naiveBayesModel)
 end
 
 % Naive Bayes prediction function using priors and conditional probabilities
-function prediction = predictNaiveBayes(model, featureVector)
+function prediction = predictNaiveBayesModel(model, featureVector)
     % Initialize prediction variable
     numClasses = numel(model.classLabels);
     classLogProbs = log(model.priors);  % Start with log priors
@@ -94,12 +92,7 @@ function prediction = predictNaiveBayes(model, featureVector)
     % Compute the log likelihood for each class
     for classIdx = 1:numClasses
         % Add log probabilities of each feature given the class
-        % Use multiplication instead of exponentiation
-        for featureIdx = 1:length(featureVector)
-            if featureVector(featureIdx) == 1  % Only consider features that are present
-                classLogProbs(classIdx) = classLogProbs(classIdx) + log(model.condProbs(classIdx, featureIdx));
-            end
-        end
+        classLogProbs(classIdx) = classLogProbs(classIdx) + sum(log(model.condProbs(classIdx, :) .^ featureVector));
     end
     
     % Predict the class with the highest log probability
