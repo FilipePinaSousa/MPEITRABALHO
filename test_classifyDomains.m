@@ -1,4 +1,4 @@
-function test_classifyArticle()
+function test_classifyDomains()
     % Carregar o dataset
     data = readtable('FakeNewsNet.csv', 'TextType', 'string');
     

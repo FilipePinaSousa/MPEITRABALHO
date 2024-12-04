@@ -6,12 +6,15 @@ function test_minHash()
     disp('Testando Similaridade entre Artigos:');
     
     % Escolhendo dois títulos de artigos do dataset para comparação
-    title1 = data.title(1);  % Pega o título do primeiro artigo
-    title2 = data.title(2);  % Pega o título do segundo artigo
+    title1 = data.title(1); 
+    title2 = data.title(2);  
     
-    % Calculando a similaridade entre os dois títulos
-    similarity = calculateSimilarity(title1, title2);  % Chama a função de similaridade
+    % Número de funções de hash a serem usadas
+    numHashes = 100;
+    
+    % Calculando a similaridade Jaccard entre os dois títulos
+    similarity = calculateJaccardSimilarity(title1, title2, numHashes);
     
     % Imprime o resultado da similaridade
-    fprintf('Similaridade entre os títulos: %d\n', similarity);
+    fprintf('A similaridade Jaccard entre os títulos é: %.4f\n', similarity);
 end
