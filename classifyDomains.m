@@ -3,86 +3,46 @@ function classifyDomains(databaseFile, naiveBayesModel)
     data = readtable(databaseFile, 'TextType', 'string');
     
     % Load Naive Bayes model
-    load(naiveBayesModel, 'model');  % Load the model trained in naiveBayesModel
+    load(naiveBayesModel, 'model'); 
     
     % Initialize list to store domain trust information
     domainTrustList = table('Size', [0 2], 'VariableTypes', {'string', 'logical'}, 'VariableNames', {'Domain', 'IsTrusted'});
     
-    % Initialize counters for statistics
-    totalDomains = 0;
-    trustedCount = 0;
-    untrustedCount = 0;
-    
-    % Create a bag-of-words object for the entire dataset (to match the model's feature set)
+    % Create a bag-of-words object for the entire dataset
     documents = tokenizedDocument(data.title);
     bag = bagOfWords(documents);
-    
-    % Match feature space: Get the same set of top features as used in training
-    [~, sortedIdx] = sort(sum(bag.Counts, 1), 'descend');  % Sort by word frequency
-    topWordsIdx = sortedIdx(1:50);  % Example: select top 50 features like in training
-    bagCounts = bag.Counts(:, topWordsIdx);  % Use only the top 50 words (features)
-    
+    [~, sortedIdx] = sort(sum(bag.Counts, 1), 'descend');
+    topWordsIdx = sortedIdx(1:50);  % Example: top 50 features
+    bagCounts = bag.Counts(:, topWordsIdx);
+
     % Process each article
     for i = 1:height(data)
-        % Extract domain from the source_domain if it exists, otherwise extract from URL
-        if ~isempty(data.source_domain{i}) && ~strcmp(data.source_domain{i}, 'NA')
-            domain = data.source_domain{i};  % Use source_domain directly
+        % Extract domain
+        if ~ismissing(data.source_domain{i}) & ~strcmp(data.source_domain{i}, 'NA')
+            domain = string(data.source_domain{i});
         else
-            domain = extractDomain(data.url{i});  % Extract domain from URL if source_domain is empty
+            domain = 'Invalid URL';
         end
         
-        % Skip invalid domains
         if strcmp(domain, 'Invalid URL')
-            continue;
+            continue;  % Skip entries with invalid URLs
         end
         
-        % Get true label for the article (assuming the correct label column is 'real')
-        trueLabel = data.real(i);  % Change this line to the correct label column name
-        
-        % Get the feature vector for the article (top words only)
-        featureVector = bagCounts(i, :);  % Extract the feature vector for the i-th article
-        
-        % Make prediction using Naive Bayes model
+        % Feature vector
+        featureVector = bagCounts(i, :);
+
+        % Prediction
         prediction = predictNaiveBayes(model, featureVector);
+        fprintf('Prediction type: %s, value: %s\n', class(prediction), mat2str(prediction)); % Debugging
         
-        % Determine trustworthiness based on prediction
-        isTrusted = prediction == 1;  % If predicted as 'true' (1), it is trusted
-        
-        % Add domain and trust status to the list
+        % Trustworthiness
+        isTrusted = prediction == 1;  % Modify if prediction is string
         domainTrustList = [domainTrustList; {domain, isTrusted}];
-        
-        % Update counters
-        totalDomains = totalDomains + 1;
-        if isTrusted
-            trustedCount = trustedCount + 1;
-        else
-            untrustedCount = untrustedCount + 1;
-        end
-        
-        % Optionally display prediction vs actual
-        trueLabelStr = 'untrusted';
-        if trueLabel == 1
-            trueLabelStr = 'trusted';
-        end
-        
-        predictionStr = 'untrusted';
-        if isTrusted
-            predictionStr = 'trusted';
-        end
-        
-        fprintf('Domain: %s, True Label: %s, Predicted: %s\n', domain, trueLabelStr, predictionStr);
     end
     
-    % Show the trust list
+    % Show results
     disp('Domain Trust List:');
     disp(domainTrustList);
-    
-    % Display Summary Statistics
-    fprintf('Total Domains Processed: %d\n', totalDomains);
-    fprintf('Trusted Domains: %d\n', trustedCount);
-    fprintf('Untrusted Domains: %d\n', untrustedCount);
-    fprintf('Percentage Trusted: %.2f%%\n', (trustedCount / totalDomains) * 100);
-    fprintf('Percentage Untrusted: %.2f%%\n', (untrustedCount / totalDomains) * 100);
 end
 
 % Naive Bayes prediction function using priors and conditional probabilities
@@ -94,7 +54,6 @@ function prediction = predictNaiveBayes(model, featureVector)
     % Compute the log likelihood for each class
     for classIdx = 1:numClasses
         % Add log probabilities of each feature given the class
-        % Use multiplication instead of exponentiation
         for featureIdx = 1:length(featureVector)
             if featureVector(featureIdx) == 1  % Only consider features that are present
                 classLogProbs(classIdx) = classLogProbs(classIdx) + log(model.condProbs(classIdx, featureIdx));
@@ -103,6 +62,25 @@ function prediction = predictNaiveBayes(model, featureVector)
     end
     
     % Predict the class with the highest log probability
-    [~, predictedClassIdx] = max(classLogProbs);
-    prediction = model.classLabels(predictedClassIdx);
+    [~, predictedClassIdx] = max(classLogProbs);  % Get the index of the max log probability
+    prediction = model.classLabels(predictedClassIdx);  % Assign the corresponding class label
+    
+    % Handle cases where classLabels might be a cell array
+    if iscell(prediction)
+        prediction = prediction{1};  % Convert cell to string or scalar
+    end
+end
+
+% Helper function to extract domain from URL
+function domain = extractDomain(url)
+    try
+        % Use MATLAB's built-in parsing for URLs
+        parsedUrl = matlab.net.URI(url);
+        domain = parsedUrl.Host;  % Extract the host (domain) from the URL
+        if isempty(domain)
+            domain = 'Invalid URL';
+        end
+    catch
+        domain = 'Invalid URL';  % Handle parsing errors
+    end
 end

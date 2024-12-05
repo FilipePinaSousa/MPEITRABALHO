@@ -1,17 +1,17 @@
 function test_naiveBayesModel()
     % Use the actual FakeNewsNet dataset
-    databaseFile = 'FakeNewsNet.csv';  % Path to your actual dataset
+    databaseFile = 'FakeNewsNet.csv';
     
     % Train the Naive Bayes model with the actual dataset
     disp('Treinando o modelo com o conjunto de dados FakeNewsNet...');
     naiveBayesModel(databaseFile);
     
     % Load the trained model
-    load('naiveBayesModel.mat', 'mdl');
+    load('naiveBayesModel.mat', 'model');
     
     % Check the model type
     disp('Modelo treinado:');
-    disp(mdl);
+    disp(model);
     
     % Test the model by making a prediction for a new title
     testTitle = "Sample article title for testing";  % Example title for prediction
@@ -27,7 +27,7 @@ function test_naiveBayesModel()
     features = [bow.Counts, domainFeature];
     
     % Make prediction
-    prediction = predict(mdl, features);
+    prediction = predict(model, features);
     
     % Display the prediction
     disp(['Predição para o título "', testTitle, '": ', string(prediction)]);

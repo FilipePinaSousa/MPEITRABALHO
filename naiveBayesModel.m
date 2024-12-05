@@ -11,7 +11,7 @@ function naiveBayesModel(databaseFile)
     validRows = ~ismissing(domains) & domains ~= "NA";
     titles = titles(validRows);
     domains = domains(validRows);
-    labels = labels(validRows);  
+    labels = labels(validRows);
     
     % Remover títulos vazios ou inválidos
     validTitles = titles ~= "";  % Excluir títulos vazios
