@@ -5,18 +5,26 @@ function processDuplicatesWithBloomFilter(databaseFile)
     data = readtable(databaseFile, 'TextType', 'string');
     
     % Criar o Bloom Filter
-    bf = createBloomFilter(1000);  % Bloom Filter com 1000 slots
-    
-    % Definir uma função hash simples
-    hashFunc = @(x) simpleHash(x);
+    bf = createBloomFilter(1000); 
     
     % Iterar sobre os dados
     for i = 1:height(data)
+        % Verificar valores ausentes
+        if ismissing(data.title(i)) || ismissing(data.news_url(i))
+            fprintf('Artigo inválido: Dados ausentes\n');
+            continue;
+        end
+        
         % Criar uma chave única para o artigo (combinação de título e URL)
         key = strcat(data.title(i), data.news_url(i));
         
         % Adicionar ao Bloom Filter
-        [bf, isNew] = addToBloomFilter(bf, key, hashFunc);
+        try
+            [bf, isNew] = addToBloomFilter(bf, key);
+        catch ME
+            fprintf('Erro ao processar chave "%s": %s\n', key, ME.message);
+            continue;
+        end
         
         % Exibir resultados
         if ~isNew
@@ -32,11 +40,14 @@ function bf = createBloomFilter(size)
     bf = false(1, size);
 end
 
-function [bf, isNew] = addToBloomFilter(bf, articleKey, hashFunction)
+function [bf, isNew] = addToBloomFilter(bf, articleKey)
     % Adiciona uma chave ao Bloom Filter e verifica se é nova
-
-    % Calcula o índice usando a função hash
-    index = mod(hashFunction(articleKey), length(bf)) + 1;
+    
+    % Usa função hash robusta (DataHash)
+    hashValue = robustHash(articleKey);
+    
+    % Calcula o índice usando o valor hash
+    index = mod(hashValue, length(bf)) + 1;  % Garantir índice no intervalo [1, length(bf)]
     
     % Verifica se o índice já estava marcado
     isNew = ~bf(index);
@@ -45,7 +56,11 @@ function [bf, isNew] = addToBloomFilter(bf, articleKey, hashFunction)
     bf(index) = true;
 end
 
-function hashValue = simpleHash(articleID)
-    % Função hash simples baseada na soma dos códigos ASCII
-    hashValue = sum(double(articleID));
+function hashValue = robustHash(inputString)
+    % Função hash robusta usando DataHash (ou método customizado)
+    persistent md5;
+    if isempty(md5)
+        md5 = @(x) sum(double(x).^2); 
+    end
+    hashValue = abs(md5(inputString));
 end

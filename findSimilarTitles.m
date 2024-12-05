@@ -1,5 +1,4 @@
 function findSimilarTitles(databaseFile)
-    % Carregar os dados
     data = readtable(databaseFile, 'TextType', 'string');
     
     % Comparar todos os pares de títulos
@@ -31,20 +30,16 @@ function similarity = calculateJaccardSimilarity(title1, title2)
 end
 
 function tokens = normalizeTokens(title)
-    % Converta para minúsculas
     title = lower(title);
     
-    % Remova pontuação
     title = regexprep(title, '[^\w\s]', ''); 
     
-    % Tokenize em palavras
     tokens = split(title);
     
-    % Remova stop words (personalize conforme necessário)
+    % Remova stop words (personalizar)
     stopWords = ["to", "the", "and", "of", "is", "a", "in", "for", "on"];
     tokens = tokens(~ismember(tokens, stopWords));
     
-    % Remova strings vazias
     tokens = tokens(~cellfun('isempty', tokens));
 end
 
