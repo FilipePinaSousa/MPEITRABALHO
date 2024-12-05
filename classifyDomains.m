@@ -1,8 +1,6 @@
 function classifyDomains(databaseFile, naiveBayesModel)
-    % Load dataset
+
     data = readtable(databaseFile, 'TextType', 'string');
-    
-    % Load Naive Bayes model
     load(naiveBayesModel, 'model'); 
     
     % Initialize list to store domain trust information
@@ -12,7 +10,7 @@ function classifyDomains(databaseFile, naiveBayesModel)
     documents = tokenizedDocument(data.title);
     bag = bagOfWords(documents);
     [~, sortedIdx] = sort(sum(bag.Counts, 1), 'descend');
-    topWordsIdx = sortedIdx(1:50);  % Example: top 50 features
+    topWordsIdx = sortedIdx(1:50);
     bagCounts = bag.Counts(:, topWordsIdx);
 
     % Process each article
@@ -25,7 +23,7 @@ function classifyDomains(databaseFile, naiveBayesModel)
         end
         
         if strcmp(domain, 'Invalid URL')
-            continue;  % Skip entries with invalid URLs
+            continue;
         end
         
         % Feature vector
@@ -33,10 +31,10 @@ function classifyDomains(databaseFile, naiveBayesModel)
 
         % Prediction
         prediction = predictNaiveBayes(model, featureVector);
-        fprintf('Prediction type: %s, value: %s\n', class(prediction), mat2str(prediction)); % Debugging
+        fprintf('Prediction type: %s, value: %s\n', class(prediction), mat2str(prediction)); 
         
         % Trustworthiness
-        isTrusted = prediction == 1;  % Modify if prediction is string
+        isTrusted = prediction == 1; 
         domainTrustList = [domainTrustList; {domain, isTrusted}];
     end
     
@@ -49,25 +47,25 @@ end
 function prediction = predictNaiveBayes(model, featureVector)
     % Initialize prediction variable
     numClasses = numel(model.classLabels);
-    classLogProbs = log(model.priors);  % Start with log priors
+    classLogProbs = log(model.priors); 
     
     % Compute the log likelihood for each class
     for classIdx = 1:numClasses
-        % Add log probabilities of each feature given the class
+        
         for featureIdx = 1:length(featureVector)
-            if featureVector(featureIdx) == 1  % Only consider features that are present
+            if featureVector(featureIdx) == 1
                 classLogProbs(classIdx) = classLogProbs(classIdx) + log(model.condProbs(classIdx, featureIdx));
             end
         end
     end
     
     % Predict the class with the highest log probability
-    [~, predictedClassIdx] = max(classLogProbs);  % Get the index of the max log probability
-    prediction = model.classLabels(predictedClassIdx);  % Assign the corresponding class label
+    [~, predictedClassIdx] = max(classLogProbs);  
+    prediction = model.classLabels(predictedClassIdx); 
     
     % Handle cases where classLabels might be a cell array
     if iscell(prediction)
-        prediction = prediction{1};  % Convert cell to string or scalar
+        prediction = prediction{1};
     end
 end
 
@@ -81,6 +79,6 @@ function domain = extractDomain(url)
             domain = 'Invalid URL';
         end
     catch
-        domain = 'Invalid URL';  % Handle parsing errors
+        domain = 'Invalid URL';
     end
 end

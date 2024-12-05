@@ -56,8 +56,8 @@ function naiveBayesModel(databaseFile)
     % Obter as classes únicas e calcular a probabilidade a priori de cada classe
     classLabels = categories(labels);  % Obter as classes únicas
     numClasses = numel(classLabels);    
-    numInstances = length(labels);     
-    priors = zeros(numClasses, 1);      
+    numInstances = length(labels);      % Número total de instâncias
+    priors = zeros(numClasses, 1);      % Probabilidades a priori de cada classe
     
     % Calcular a probabilidade a priori para cada classe
     for i = 1:numClasses
