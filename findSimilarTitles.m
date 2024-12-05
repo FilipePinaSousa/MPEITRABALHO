@@ -1,12 +1,11 @@
 function findSimilarTitles(databaseFile)
     % Carregar os dados
     data = readtable(databaseFile, 'TextType', 'string');
-    numHashes = 100;  % Número de funções de hash (ajustável)
     
     % Comparar todos os pares de títulos
     for i = 1:height(data)
         for j = i+1:height(data)
-            similarity = calculateJaccardSimilarity(data.title(i), data.title(j), numHashes);
+            similarity = calculateJaccardSimilarity(data.title(i), data.title(j));
             fprintf('Similaridade entre os títulos:\n');
             fprintf('Título 1: %s\nTítulo 2: %s\nSimilaridade de Jaccard: %.2f\n\n', ...
                 data.title(i), data.title(j), similarity);
@@ -14,30 +13,38 @@ function findSimilarTitles(databaseFile)
     end
 end
 
-function similarity = calculateJaccardSimilarity(title1, title2, numHashes)
-    % Tokenizar os títulos
-    tokens1 = split(lower(title1)); % Tokenização simples (palavras)
-    tokens2 = split(lower(title2));
+function similarity = calculateJaccardSimilarity(title1, title2)
+    % Tokenizar e normalizar os títulos
+    tokens1 = normalizeTokens(title1);
+    tokens2 = normalizeTokens(title2);
     
-    % Criar o conjunto de tokens únicos
+    % Criar conjuntos únicos
     set1 = unique(tokens1);
     set2 = unique(tokens2);
     
-    % Unir os conjuntos para criar uma matriz de características
-    allTokens = unique([set1; set2]);
-    set1Bin = ismember(allTokens, set1);
-    set2Bin = ismember(allTokens, set2);
+    % Calcular interseção e união
+    intersection = intersect(set1, set2);
+    unionSet = union(set1, set2);
     
-    % Inicializar MinHash
-    numTokens = length(allTokens);
-    minHash1 = inf(1, numHashes);
-    minHash2 = inf(1, numHashes);
-    for k = 1:numHashes
-        perm = randperm(numTokens);  % Permutação aleatória
-        minHash1(k) = find(set1Bin(perm), 1 );  % Menor índice após permutação
-        minHash2(k) = find(set2Bin(perm), 1 );
-    end
-    
-    % Calcular a similaridade como a fração de hashes iguais
-    similarity = sum(minHash1 == minHash2) / numHashes;
+    % Calcular a similaridade de Jaccard
+    similarity = numel(intersection) / numel(unionSet);
 end
+
+function tokens = normalizeTokens(title)
+    % Converta para minúsculas
+    title = lower(title);
+    
+    % Remova pontuação
+    title = regexprep(title, '[^\w\s]', ''); 
+    
+    % Tokenize em palavras
+    tokens = split(title);
+    
+    % Remova stop words (personalize conforme necessário)
+    stopWords = ["to", "the", "and", "of", "is", "a", "in", "for", "on"];
+    tokens = tokens(~ismember(tokens, stopWords));
+    
+    % Remova strings vazias
+    tokens = tokens(~cellfun('isempty', tokens));
+end
+
