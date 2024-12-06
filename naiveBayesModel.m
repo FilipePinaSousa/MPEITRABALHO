@@ -14,18 +14,18 @@ function naiveBayesModel(databaseFile)
     labels = labels(validRows);
     
     % Remover títulos vazios ou inválidos
-    validTitles = titles ~= "";  % Excluir títulos vazios
-    titles = titles(validTitles); % Atualizar títulos válidos
-    domains = domains(validTitles); % Atualizar domínios
-    labels = labels(validTitles);   % Atualizar rótulos
+    validTitles = titles ~= "";
+    titles = titles(validTitles);
+    domains = domains(validTitles);
+    labels = labels(validTitles);
     
     % Processar os domínios como uma variável categórica
-    uniqueDomains = unique(domains);  % Obter domínios únicos
-    domainFeatures = zeros(length(titles), length(uniqueDomains));  % Inicializar a matriz de características
+    uniqueDomains = unique(domains);
+    domainFeatures = zeros(length(titles), length(uniqueDomains));
     
     for i = 1:length(titles)
-        domainIdx = strcmp(uniqueDomains, domains(i));  % Encontrar o índice do domínio
-        domainFeatures(i, domainIdx) = 1;  % Definir a coluna correspondente ao domínio como 1
+        domainIdx = strcmp(uniqueDomains, domains(i));
+        domainFeatures(i, domainIdx) = 1;
     end
     
     % Processar as palavras dos títulos
@@ -35,17 +35,17 @@ function naiveBayesModel(databaseFile)
     % Obter contagens das palavras
     countsTitles = full(bag.Counts);       
 
-    % Limitar o número de palavras para as mais frequentes (por exemplo, 50)
-    [~, sortedIdx] = sort(sum(countsTitles, 1), 'descend');  % Ordenar as palavras por frequência
-    topWordsIdx = sortedIdx(1:50);  % Selecionar as 50 palavras mais frequentes
-    countsTitles = countsTitles(:, topWordsIdx);  % Reduzir as contagens às palavras mais frequentes
+    % Limitar o número de palavras para as mais frequentes (por exemplo,top 50)
+    [~, sortedIdx] = sort(sum(countsTitles, 1), 'descend'); 
+    topWordsIdx = sortedIdx(1:50);
+    countsTitles = countsTitles(:, topWordsIdx);
     
     % Concatenar as contagens de palavras e as características de domínio
     domainFeaturesSparse = sparse(domainFeatures);
     features = [countsTitles, domainFeaturesSparse];
     
     % Verificar a variância das características
-    featureVariance = var(features, 0, 1); % Variância por coluna
+    featureVariance = var(features, 0, 1);
     disp('Variância de cada coluna de características:');
     disp(featureVariance);
     
@@ -54,7 +54,7 @@ function naiveBayesModel(databaseFile)
     features = features(:, nonZeroVarianceColumns);
     
     % Obter as classes únicas e calcular a probabilidade a priori de cada classe
-    classLabels = categories(labels);  % Obter as classes únicas
+    classLabels = categories(labels);
     numClasses = numel(classLabels);    
     numInstances = length(labels);     
     priors = zeros(numClasses, 1);      
