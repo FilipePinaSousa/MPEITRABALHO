@@ -25,20 +25,34 @@ function naiveBayesModel(databaseFile)
     titleFeatures = zeros(numInstances, 1);
     
     for i = 1:numInstances
-    % Gerar hashes para domínios e títulos
-    domainHash = string2hash(domains(i));
-    titleHash = string2hash(titles(i));
-    
-    % Normalizar os hashes para evitar problemas de overflow
-    domainFeatures(i) = domainHash;
-    titleFeatures(i) = titleHash;
-    
-    % Depuração: Exibir os valores dos hashes
-    if mod(i, 10) == 0  % Exibir a cada 10 instâncias
-        fprintf('Instância %d: Domain Hash = %d, Title Hash = %d\n', i, domainFeatures(i), titleFeatures(i));
+        % Validar os dados antes de gerar o hash
+        if strlength(domains(i)) > 0 && strlength(titles(i)) > 0
+            % Gerar hashes para domínios e títulos
+            domainHash = string2hash(domains(i));
+            titleHash = string2hash(titles(i));
+            
+            % Normalizar os hashes para evitar problemas de overflow
+            domainFeatures(i) = mod(domainHash, 100);
+            titleFeatures(i) = mod(titleHash, 100);
+        else
+            % Marcar entradas inválidas como NaN
+            domainFeatures(i) = NaN;
+            titleFeatures(i) = NaN;
+            fprintf('Entrada inválida na instância %d: Domain = "%s", Title = "%s"\n', ...
+i, domains(i), titles(i));
+        end
+        
+        % Depuração: Exibir os valores dos hashes
+        if mod(i, 10) == 0  % Exibir a cada 10 instâncias
+            fprintf('Instância %d: Domain Hash = %d, Title Hash = %d\n', i, domainFeatures(i), titleFeatures(i));
+        end
     end
-end
     
+    % Remover instâncias inválidas
+    validInstances = ~isnan(domainFeatures) & ~isnan(titleFeatures);
+    domainFeatures = domainFeatures(validInstances);
+    titleFeatures = titleFeatures(validInstances);
+    labels = labels(validInstances);
     
     % Concatenar as características
     features = [domainFeatures, titleFeatures];
@@ -47,7 +61,8 @@ end
     featureVariance = var(features, 0, 1);
     disp('Variância de cada coluna de características:');
     disp(featureVariance);
-    
+
+
     % Verificar se há características válidas antes de remover
     if all(isnan(featureVariance))
         error('Todas as variâncias são NaN. Verifique os dados de entrada e a geração das características.');
