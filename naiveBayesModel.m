@@ -2,9 +2,9 @@ function naiveBayesModel(databaseFile)
     % Carregar os dados
     data = readtable(databaseFile, 'TextType', 'string');
     
-    % Extrair títulos e rótulos
+    % Extrair títulos, domínios e rótulos
     titles = strtrim(string(data.title))'; 
-    domains = data.source_domain';        
+    domains = data.source_domain';
     labels = categorical(data.real)';  
     
     % Remover entradas inválidas (NA ou vazio) nos domínios
@@ -19,47 +19,55 @@ function naiveBayesModel(databaseFile)
     domains = domains(validTitles);
     labels = labels(validTitles);
     
-    % Processar os domínios como uma variável categórica
-    uniqueDomains = unique(domains);
-    domainFeatures = zeros(length(titles), length(uniqueDomains));
+    % Construir características usando string2hash
+    numInstances = length(titles);
+    domainFeatures = zeros(numInstances, 1);
+    titleFeatures = zeros(numInstances, 1);
     
-    for i = 1:length(titles)
-        domainIdx = strcmp(uniqueDomains, domains(i));
-        domainFeatures(i, domainIdx) = 1;
+    for i = 1:numInstances
+    % Gerar hashes para domínios e títulos
+    domainHash = string2hash(domains(i));
+    titleHash = string2hash(titles(i));
+    
+    % Normalizar os hashes para evitar problemas de overflow
+    domainFeatures(i) = domainHash;
+    titleFeatures(i) = titleHash;
+    
+    % Depuração: Exibir os valores dos hashes
+    if mod(i, 10) == 0  % Exibir a cada 10 instâncias
+        fprintf('Instância %d: Domain Hash = %d, Title Hash = %d\n', i, domainFeatures(i), titleFeatures(i));
     end
+end
     
-    % Processar as palavras dos títulos
-    documents = tokenizedDocument(titles);  
-    bag = bagOfWords(documents);            
     
-    % Obter contagens das palavras
-    countsTitles = full(bag.Counts);       
-
-    % Limitar o número de palavras para as mais frequentes (por exemplo,top 50)
-    [~, sortedIdx] = sort(sum(countsTitles, 1), 'descend'); 
-    topWordsIdx = sortedIdx(1:50);
-    countsTitles = countsTitles(:, topWordsIdx);
-    
-    % Concatenar as contagens de palavras e as características de domínio
-    domainFeaturesSparse = sparse(domainFeatures);
-    features = [countsTitles, domainFeaturesSparse];
+    % Concatenar as características
+    features = [domainFeatures, titleFeatures];
     
     % Verificar a variância das características
     featureVariance = var(features, 0, 1);
     disp('Variância de cada coluna de características:');
     disp(featureVariance);
     
+    % Verificar se há características válidas antes de remover
+    if all(isnan(featureVariance))
+        error('Todas as variâncias são NaN. Verifique os dados de entrada e a geração das características.');
+    end
+    
     % Remover colunas com variância zero
     nonZeroVarianceColumns = featureVariance > 0;
+    
+    % Checar se há colunas válidas restantes
+    if ~any(nonZeroVarianceColumns)
+        error('Nenhuma característica válida após a remoção de colunas com variância zero.');
+    end
+    
     features = features(:, nonZeroVarianceColumns);
     
     % Obter as classes únicas e calcular a probabilidade a priori de cada classe
     classLabels = categories(labels);
-    numClasses = numel(classLabels);    
-    numInstances = length(labels);     
-    priors = zeros(numClasses, 1);      
+    numClasses = numel(classLabels);
+    priors = zeros(numClasses, 1);
     
-    % Calcular a probabilidade a priori para cada classe
     for i = 1:numClasses
         priors(i) = sum(labels == classLabels(i)) / numInstances;
     end
