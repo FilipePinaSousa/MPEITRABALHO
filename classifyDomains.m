@@ -1,77 +1,71 @@
 function classifyDomains(databaseFile, naiveBayesModel)
-
+    % Ler os dados do arquivo e carregar o modelo Naive Bayes
     data = readtable(databaseFile, 'TextType', 'string');
     load(naiveBayesModel, 'model'); 
     
-    % Inicializar e armazenar informação confiavel
+    % Inicializar tabela para armazenar resultados
     domainTrustList = table('Size', [0 2], 'VariableTypes', {'string', 'logical'}, 'VariableNames', {'Domain', 'IsTrusted'});
     
-    % Criar a bag-of-words object para o dataset
-    documents = tokenizedDocument(data.title);
-    bag = bagOfWords(documents);
-    [~, sortedIdx] = sort(sum(bag.Counts, 1), 'descend');
-    topWordsIdx = sortedIdx(1:50);
-    bagCounts = bag.Counts(:, topWordsIdx);
-
-    % Procesar cada um dos dominios
+    % Processar cada domínio nos dados
     for i = 1:height(data)
-        % Extrair os dominios
-        if ~ismissing(data.source_domain{i}) & ~strcmp(data.source_domain{i}, 'NA')
+        % Verificar se o domínio é válido
+        if ~ismissing(data.source_domain{i}) & ~strcmp(data.source_domain{i}, 'NA') & strlength(data.source_domain{i}) > 0
             domain = string(data.source_domain{i});
         else
             domain = 'Invalid URL';
         end
         
         if strcmp(domain, 'Invalid URL')
+            fprintf('Invalid domain for entry %d\n', i);
             continue;
         end
         
-        featureVector = bagCounts(i, :);
+        % Construir vetor de características usando string2hash
+        domainHash = string2hash(domain);  % Gerar hash do domínio
+        titleHash = string2hash(data.title{i}); % Gerar hash do título
+        featureVector = [mod(domainHash, 100), mod(titleHash, 100)]; % Normalizar os hashes
+        
+        % Fazer a previsão com o modelo Naive Bayes
         prediction = predictNaiveBayes(model, featureVector);
-        fprintf('Prediction type: %s, value: %s\n', class(prediction), mat2str(prediction)); 
+        
+        % Exibir o tipo e valor da previsão para depuração
+        fprintf('Prediction type: %s, value: %s\n', class(prediction), mat2str(prediction));
+        
+        % Determinar se o domínio é confiável
         isTrusted = prediction == 1; 
         domainTrustList = [domainTrustList; {domain, isTrusted}];
     end
     
+    % Exibir a lista final de domínios confiáveis
     disp('Domain Trust List:');
     disp(domainTrustList);
 end
 
-% Naive Bayes prediction function que usa priors e probabilidades condicionais
+% Função de predição Naive Bayes
 function prediction = predictNaiveBayes(model, featureVector)
     numClasses = numel(model.classLabels);
-    classLogProbs = log(model.priors); 
+    classLogProbs = log(model.priors); % Log dos priors das classes
     
-    % Computar o the log likelihood para cada classe
+    % Computar a verossimilhança logarítmica para cada classe
     for classIdx = 1:numClasses
-        
         for featureIdx = 1:length(featureVector)
-            if featureVector(featureIdx) == 1
-                classLogProbs(classIdx) = classLogProbs(classIdx) + log(model.condProbs(classIdx, featureIdx));
+            % Verificar se a característica existe no modelo
+            if featureVector(featureIdx) > 0 && featureVector(featureIdx) <= size(model.condProbs, 2)
+                classLogProbs(classIdx) = classLogProbs(classIdx) + ...
+                                          log(model.condProbs(classIdx, featureVector(featureIdx)));
+            else
+                % Penalizar características fora do modelo
+                classLogProbs(classIdx) = classLogProbs(classIdx) - 1; 
             end
         end
     end
     
-    % Predict the class with the highest log probability
+    % Prever a classe com maior probabilidade logarítmica
     [~, predictedClassIdx] = max(classLogProbs);  
-    prediction = model.classLabels(predictedClassIdx); 
+    prediction = model.classLabels(predictedClassIdx);
     
-    %casos que são cell arrays
+    % Garantir que a previsão seja retornada no formato correto
     if iscell(prediction)
         prediction = prediction{1};
-    end
-end
-
-% Função de extração de dominios
-function domain = extractDomain(url)
-    try
-        % Uso MATLAB's built-in para o parsing de URL
-        parsedUrl = matlab.net.URI(url);
-        domain = parsedUrl.Host;
-        if isempty(domain)
-            domain = 'Invalid URL';
-        end
-    catch
-        domain = 'Invalid URL';
     end
 end
