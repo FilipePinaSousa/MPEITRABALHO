@@ -32,14 +32,14 @@ function naiveBayesModel(databaseFile)
             titleHash = string2hash(titles(i));
             
             % Atribuir os valores dos hashes às características
-            domainFeatures(i) = mod(domainHash, 100);
-            titleFeatures(i) = mod(titleHash, 100);
+            domainFeatures(i) = domainHash; % Use o valor completo sem mod
+            titleFeatures(i) = titleHash;  % Use o valor completo sem mod
         else
             % Marcar entradas inválidas como NaN
             domainFeatures(i) = NaN;
             titleFeatures(i) = NaN;
             fprintf('Entrada inválida na instância %d: Domain = "%s", Title = "%s"\n', ...
-i, domains(i), titles(i));
+                i, domains(i), titles(i));
         end
         
         % Depuração: Exibir os valores dos hashes
@@ -54,33 +54,29 @@ i, domains(i), titles(i));
     titleFeatures = titleFeatures(validInstances);
     labels = labels(validInstances);
     
-    % Concatenar as características
-    features = [domainFeatures, titleFeatures];
-    
     % Normalizar as características
-    domainFeatures = (domainFeatures - min(domainFeatures)) / (max(domainFeatures) - min(domainFeatures));
-    titleFeatures = (titleFeatures - min(titleFeatures)) / (max(titleFeatures) - min(titleFeatures));
-
-    % Concatenar as características normalizadas
-    features = [domainFeatures, titleFeatures];
+    domainRange = max(domainFeatures) - min(domainFeatures);
+    if domainRange > 0
+        domainFeatures = (domainFeatures - min(domainFeatures)) / domainRange;
+    end
     
-    % Verificar a variância das características
-    featureVariance = var(features, 0, 1);
-    disp('Variância de cada coluna de características:');
+    titleRange = max(titleFeatures) - min(titleFeatures);
+    if titleRange > 0
+        titleFeatures = (titleFeatures - min(titleFeatures)) / titleRange;
+    end
+
+    % Calcular a variância e verificar
+    featureVariance = [var(domainFeatures), var(titleFeatures)];
+    disp('Variância de cada característica:');
     disp(featureVariance);
 
-    if all(isnan(featureVariance))
-        error('Todas as variâncias são NaN. Verifique os dados de entrada e a geração das características.');
+    if any(isnan(featureVariance))
+        error('Algumas variâncias são NaN. Verifique os dados de entrada e a geração das características.');
     end
     
-    nonZeroVarianceColumns = featureVariance > 0;
-    
-    if ~any(nonZeroVarianceColumns)
-        error('Nenhuma característica válida após a remoção de colunas com variância zero.');
-    end
-    
-    features = features(:, nonZeroVarianceColumns);
-    
+    % Concatenar as características para o modelo
+    features = [domainFeatures, titleFeatures];
+
     % Obter as classes únicas e calcular a probabilidade a priori de cada classe
     classLabels = categories(labels);
     numClasses = numel(classLabels);
@@ -94,12 +90,14 @@ i, domains(i), titles(i));
     condProbs = zeros(numClasses, size(features, 2));
     for i = 1:numClasses
         classInstances = features(labels == classLabels(i), :);
-        condProbs(i, :) = (sum(classInstances, 1) + 1) / (size(classInstances, 1) + 2); 
+        condProbs(i, :) = mean(classInstances, 1); % Calcula diretamente a média condicional
     end
-    
+
+    % Salvar o modelo treinado
     model.priors = priors;
     model.condProbs = condProbs;
     model.classLabels = classLabels;
+    model.features = features;
     save('naiveBayesModel.mat', 'model');
     disp('Modelo treinado e salvo.');
 end

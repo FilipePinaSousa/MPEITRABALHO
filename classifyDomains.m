@@ -6,8 +6,9 @@ function classifyDomains(databaseFile, naiveBayesModel)
     % Inicializar lista para armazenar informações de confiança dos domínios
     domainTrustList = table('Size', [0 2], 'VariableTypes', {'string', 'logical'}, 'VariableNames', {'Domain', 'IsTrusted'});
     
-    % Inicializar um mapa para contar o número de notícias falsas por domínio
+    % Inicializar mapas para contar o número de notícias confiáveis (real = 1) e falsas (real = 0) por domínio
     fakeNewsCount = containers.Map('KeyType', 'char', 'ValueType', 'int32');
+    trustedNewsCount = containers.Map('KeyType', 'char', 'ValueType', 'int32');
     
     % Processar cada artigo
     for i = 1:height(data)
@@ -43,11 +44,17 @@ function classifyDomains(databaseFile, naiveBayesModel)
         % Fazer a previsão usando o modelo Naive Bayes
         prediction = predictNaiveBayes(model, featureVector);
         
-        % Determinar se o domínio é confiável (baseado na previsão)
-        isTrusted = prediction == 1; 
+        % Extrair o valor real (real = 1 ou real = 0)
+        realValue = data.real(i);
         
-        % Se o domínio não for confiável, incrementar o contador de notícias falsas
-        if ~isTrusted
+        % Atualizar os contadores de notícias confiáveis (real = 1) e falsas (real = 0)
+        if realValue == 1
+            if isKey(trustedNewsCount, domain)
+                trustedNewsCount(domain) = trustedNewsCount(domain) + 1;
+            else
+                trustedNewsCount(domain) = 1;
+            end
+        else
             if isKey(fakeNewsCount, domain)
                 fakeNewsCount(domain) = fakeNewsCount(domain) + 1;
             else
@@ -57,18 +64,35 @@ function classifyDomains(databaseFile, naiveBayesModel)
         
         % Adicionar à lista de confiança de domínios somente se ainda não estiver na lista
         if ~any(domainTrustList.Domain == domain)
-            domainTrustList = [domainTrustList; {domain, isTrusted}];
+            domainTrustList = [domainTrustList; {domain, false}]; % Inicializa como não confiável
         end
     end
     
-    % Atualizar a lista de confiança dos domínios com base na contagem de notícias falsas
+    % Atualizar a lista de confiança dos domínios com base no critério
     for i = 1:height(domainTrustList)
         domain = domainTrustList.Domain{i};
         
-        % Se o domínio tiver mais de 5 instâncias de notícias falsas, marcá-lo como não confiável
-        if isKey(fakeNewsCount, domain) && fakeNewsCount(domain) > 5
-            domainTrustList.IsTrusted(i) = false;
-            fprintf('Domínio "%s" tem mais de 5 instâncias de notícias falsas. Marcando como não confiável.\n', domain);
+        % Verificar se a chave existe no mapa de notícias confiáveis (trustedNewsCount)
+        if isKey(trustedNewsCount, domain)
+            trustedCount = trustedNewsCount(domain);
+        else
+            trustedCount = 0; % Caso a chave não exista, considera 0
+        end
+        
+        % Verificar se a chave existe no mapa de notícias falsas (fakeNewsCount)
+        if isKey(fakeNewsCount, domain)
+            fakeCount = fakeNewsCount(domain);
+        else
+            fakeCount = 0; % Caso a chave não exista, considera 0
+        end
+        
+        % Condição: mais do dobro de notícias confiáveis do que notícias falsas
+        if trustedCount > 2 * fakeCount
+            domainTrustList.IsTrusted(i) = true; % Marca como confiável
+            fprintf('Domínio "%s" é confiável (mais do dobro de notícias reais).\n', domain);
+        else
+            domainTrustList.IsTrusted(i) = false; % Marca como não confiável
+            fprintf('Domínio "%s" não é confiável (não tem mais do dobro de notícias reais).\n', domain);
         end
     end
     
