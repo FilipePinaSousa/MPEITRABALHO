@@ -2,24 +2,21 @@ function findSimilarTitlesMinHash(databaseFile)
     % Ler a tabela de títulos
     data = readtable(databaseFile, 'TextType', 'string');
     
-    % Limitar o número de títulos a 1000
-    numTitles = min(1000, height(data));
-    
     % Parâmetros para MinHash
-    numHashes = 500;  % Aumentando o número de hashes
-    shinglesSize = 8;  % Aumentando o tamanho dos shingles
+    numHashes = 1000;  % Aumente o número de hashes
+    shinglesSize = 8;  % Aumente o tamanho dos shingles
     
     % Criar MinHash assinaturas
-    signatures = zeros(numTitles, numHashes);
-    for i = 1:numTitles
+    signatures = zeros(height(data), numHashes);
+    for i = 1:height(data)
         shingles = generateShingles(data.title(i), shinglesSize);
         fprintf('Shingles do título %d: %s\n', i, strjoin(string(shingles), ', '));
         signatures(i, :) = generateMinHashWithString2Hash(shingles, numHashes);
     end
     
     % Comparar assinaturas e calcular similaridade
-    for i = 1:numTitles
-        for j = i+1:numTitles
+    for i = 1:height(data)
+        for j = i+1:height(data)
             similarity = calculateMinHashSimilarity(signatures(i, :), signatures(j, :));
             fprintf('Similaridade entre os títulos:\n');
             fprintf('Título 1: %s\nTítulo 2: %s\nSimilaridade MinHash: %.2f\n\n', ...
@@ -54,17 +51,16 @@ function shingles = generateShingles(text, k)
     end
 end
 
-
 function signature = generateMinHashWithString2Hash(shingles, numHashes)
     % Parâmetros para hashing
     numShingles = numel(shingles);
     signature = inf(1, numHashes);  % Inicializar assinatura com infinito
     
-    % Utilizando MD5 como função de hash para evitar colisões
+    % Usando o método string2hash com djb2
     for i = 1:numHashes
         for j = 1:numShingles
-            % Calcular o hash com uma função MD5 (ou outra função de hash de sua escolha)
-            hashValue = mod(string2hash(shingles{j}, 'md5', i), 2^31 - 1); 
+            % Calcular o hash com a função string2hash (usando djb2)
+            hashValue = mod(string2hash(shingles{j}, 'djb2', i), 2^31 - 1); 
             if hashValue < signature(i)
                 signature(i) = hashValue;  % Atualizar o valor mínimo
             end
