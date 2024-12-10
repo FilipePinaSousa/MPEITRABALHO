@@ -30,8 +30,7 @@ function FamoustitlesWithBloomFilter(databaseFile)
             fprintf('Erro ao processar chave "%s": %s\n', key, ME.message);
             continue;
         end
-        
-        % Exibir resultados
+       
         if ~wasAlreadyFamous
             fprintf('Nova notícia famosa: %s\n', data.title(i));
         else
@@ -40,48 +39,53 @@ function FamoustitlesWithBloomFilter(databaseFile)
     end
 end
 
-function bf = createBloomFilter(size)
-    % Cria um vetor lógico para simular o Bloom Filter
-    if size <= 0
+function bf = createBloomFilter(bfSize)
+    % Cria um Bloom Filter com o tamanho especificado
+    if bfSize <= 0
         error('O tamanho do Bloom Filter deve ser positivo.');
     end
-    bf = false(1, size);
+    bf = false(1, bfSize);
 end
 
 function [bf, wasAlreadyFamous] = addToBloomFilter(bf, articleKey)
     % Adiciona uma chave ao Bloom Filter e verifica se já estava presente
+    wasAlreadyFamous = false; % Inicializar como falso por padrão
     
-    % Usa múltiplas funções hash para maior robustez
-    hash1 = robustHash(articleKey);
-    hash2 = robustHash(strcat(articleKey, 'salt')); % Segundo hash
-    
-    % Calcula os índices usando os valores hash e mod
-    index1 = mod(hash1, length(bf)) + 1;
-    index2 = mod(hash2, length(bf)) + 1;
-    
-    % Validar os índices
-    if index1 < 1 || index1 > length(bf)
-        fprintf('Erro: índice1 fora do intervalo (%d, tamanho: %d)\n', index1, length(bf));
-        wasAlreadyFamous = false;
-        return;
+    try
+        % Usa múltiplas funções hash para maior robustez
+        hash1 = robustHash(articleKey);
+        hash2 = robustHash(strcat(articleKey, 'salt'));
+        
+        % Calcula os índices usando os valores hash e mod
+        index1 = mod(hash1, length(bf)) + 1;
+        index2 = mod(hash2, length(bf)) + 1;
+
+        % Validar os índices
+        if index1 < 1 || index1 > length(bf)
+            fprintf('Erro: índice1 fora do intervalo (%d, tamanho: %d)\n', index1, length(bf));
+            return; % Retorna sem processar mais
+        end
+        if index2 < 1 || index2 > length(bf)
+            fprintf('Erro: índice2 fora do intervalo (%d, tamanho: %d)\n', index2, length(bf));
+            return; % Retorna sem processar mais
+        end
+
+        % Verifica se ambas as posições já estão marcadas
+        wasAlreadyFamous = bf(index1) && bf(index2);
+
+        % Marca as posições no Bloom Filter
+        bf(index1) = true;
+        bf(index2) = true;
+
+    catch ME
+        fprintf('Erro ao adicionar chave ao Bloom Filter: %s\n', ME.message);
+        % wasAlreadyFamous já é inicializado como false, então nenhuma ação adicional é necessária
     end
-    if index2 < 1 || index2 > length(bf)
-        fprintf('Erro: índice2 fora do intervalo (%d, tamanho: %d)\n', index2, length(bf));
-        wasAlreadyFamous = false;
-        return;
-    end
-    
-    % Verifica se ambas as posições já estão marcadas
-    wasAlreadyFamous = bf(index1) && bf(index2);
-    
-    % Marca as posições no Bloom Filter
-    bf(index1) = true;
-    bf(index2) = true;
 end
 
 function hashValue = robustHash(inputString)
     % Nova função de hash baseada em soma de caracteres
-    inputString = char(inputString); % Converte entrada para caractere
-    hashValue = sum(double(inputString) .* (1:numel(inputString))); % Peso incremental
-    hashValue = mod(abs(hashValue), 1e9); % Mantém valor dentro de um intervalo
+    inputString = char(inputString);
+    hashValue = sum(double(inputString) .* (1:numel(inputString)));
+    hashValue = mod(abs(hashValue), 1e9);
 end

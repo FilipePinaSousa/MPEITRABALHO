@@ -3,7 +3,7 @@ function naiveBayesModel(databaseFile)
     data = readtable(databaseFile, 'TextType', 'string');
     
     % Extrair títulos, domínios e rótulos
-    titles = strtrim(string(data.title))'; 
+    titles = strtrim(string(data.title))';
     domains = data.source_domain';
     labels = categorical(data.real)';  
     
@@ -23,7 +23,7 @@ function naiveBayesModel(databaseFile)
     numInstances = length(titles);
     domainFeatures = zeros(numInstances, 1);
     titleFeatures = zeros(numInstances, 1);
-    
+
     for i = 1:numInstances
         % Validar os dados antes de gerar o hash
         if strlength(domains(i)) > 0 && strlength(titles(i)) > 0
@@ -31,7 +31,7 @@ function naiveBayesModel(databaseFile)
             domainHash = string2hash(domains(i));
             titleHash = string2hash(titles(i));
             
-            % Normalizar os hashes para evitar problemas de overflow
+            % Atribuir os valores dos hashes às características
             domainFeatures(i) = mod(domainHash, 100);
             titleFeatures(i) = mod(titleHash, 100);
         else
@@ -43,7 +43,7 @@ i, domains(i), titles(i));
         end
         
         % Depuração: Exibir os valores dos hashes
-        if mod(i, 10) == 0  % Exibir a cada 10 instâncias
+        if mod(i, 10) == 0
             fprintf('Instância %d: Domain Hash = %d, Title Hash = %d\n', i, domainFeatures(i), titleFeatures(i));
         end
     end
@@ -57,21 +57,24 @@ i, domains(i), titles(i));
     % Concatenar as características
     features = [domainFeatures, titleFeatures];
     
+    % Normalizar as características
+    domainFeatures = (domainFeatures - min(domainFeatures)) / (max(domainFeatures) - min(domainFeatures));
+    titleFeatures = (titleFeatures - min(titleFeatures)) / (max(titleFeatures) - min(titleFeatures));
+
+    % Concatenar as características normalizadas
+    features = [domainFeatures, titleFeatures];
+    
     % Verificar a variância das características
     featureVariance = var(features, 0, 1);
     disp('Variância de cada coluna de características:');
     disp(featureVariance);
 
-
-    % Verificar se há características válidas antes de remover
     if all(isnan(featureVariance))
         error('Todas as variâncias são NaN. Verifique os dados de entrada e a geração das características.');
     end
     
-    % Remover colunas com variância zero
     nonZeroVarianceColumns = featureVariance > 0;
     
-    % Checar se há colunas válidas restantes
     if ~any(nonZeroVarianceColumns)
         error('Nenhuma característica válida após a remoção de colunas com variância zero.');
     end
@@ -94,7 +97,6 @@ i, domains(i), titles(i));
         condProbs(i, :) = (sum(classInstances, 1) + 1) / (size(classInstances, 1) + 2); 
     end
     
-    % Salvar o modelo treinado
     model.priors = priors;
     model.condProbs = condProbs;
     model.classLabels = classLabels;

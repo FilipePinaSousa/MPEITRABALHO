@@ -1,52 +1,52 @@
 function classifyDomains(databaseFile, naiveBayesModel)
-    % Read the data and load the Naive Bayes model
+    % Ler os dados do arquivo e carregar o modelo Naive Bayes
     data = readtable(databaseFile, 'TextType', 'string');
     load(naiveBayesModel, 'model'); 
     
-    % Initialize list to store domain trust information
+    % Inicializar lista para armazenar informações de confiança dos domínios
     domainTrustList = table('Size', [0 2], 'VariableTypes', {'string', 'logical'}, 'VariableNames', {'Domain', 'IsTrusted'});
     
-    % Initialize a map to count the number of fake news per domain
+    % Inicializar um mapa para contar o número de notícias falsas por domínio
     fakeNewsCount = containers.Map('KeyType', 'char', 'ValueType', 'int32');
     
-    % Process each article
+    % Processar cada artigo
     for i = 1:height(data)
-        % Extract domain using the custom extractDomain function
+        % Extrair o domínio usando a função personalizada extractDomain
         domain = string(data.source_domain{i});
         
-        % Debugging output to check the extracted domain
-        fprintf('Entry %d - Extracted domain: "%s"\n', i, domain);
+        % Exibição para depuração para verificar o domínio extraído
+        fprintf('Entrada %d - Domínio extraído: "%s"\n', i, domain);
         
-        % Skip invalid domains
+        % Pular domínios inválidos
         if strcmp(domain, 'Invalid URL')
-            fprintf('Skipping invalid domain for entry %d: "%s"\n', i, domain);
+            fprintf('Pulando domínio inválido na entrada %d: "%s"\n', i, domain);
             continue;
         end
         
-        % Extract title (if available)
+        % Extrair o título (se disponível)
         if ismember('title', data.Properties.VariableNames)
             title = data.title{i};
         else
-            title = "default";  % Default value if title is missing
+            title = "default"; 
         end
         
-        % Validate title
+        % Validar título
         if any(ismissing(title)) || strlength(title) == 0
-            title = "default";  % Use default if title is missing or empty
+            title = "default";
         end
         
-        % Feature vector (using domain and title hashes)
+        % Vetor de características (usando hashes do domínio e do título)
         domainHash = string2hash(domain);
         titleHash = string2hash(title);
         featureVector = [mod(domainHash, 100), mod(titleHash, 100)];
         
-        % Make prediction using Naive Bayes model
+        % Fazer a previsão usando o modelo Naive Bayes
         prediction = predictNaiveBayes(model, featureVector);
         
-        % Determine if the domain is trusted (based on prediction)
+        % Determinar se o domínio é confiável (baseado na previsão)
         isTrusted = prediction == 1; 
         
-        % If the domain is untrusted, increment the fake news count
+        % Se o domínio não for confiável, incrementar o contador de notícias falsas
         if ~isTrusted
             if isKey(fakeNewsCount, domain)
                 fakeNewsCount(domain) = fakeNewsCount(domain) + 1;
@@ -55,34 +55,36 @@ function classifyDomains(databaseFile, naiveBayesModel)
             end
         end
         
-        % Append to the domainTrustList only if it's not already in the list
+        % Adicionar à lista de confiança de domínios somente se ainda não estiver na lista
         if ~any(domainTrustList.Domain == domain)
             domainTrustList = [domainTrustList; {domain, isTrusted}];
         end
     end
     
-    % Update domain trust list based on the fake news count
+    % Atualizar a lista de confiança dos domínios com base na contagem de notícias falsas
     for i = 1:height(domainTrustList)
         domain = domainTrustList.Domain{i};
         
-        % If the domain has more than 5 fake news instances, mark it as untrusted
+        % Se o domínio tiver mais de 5 instâncias de notícias falsas, marcá-lo como não confiável
         if isKey(fakeNewsCount, domain) && fakeNewsCount(domain) > 5
             domainTrustList.IsTrusted(i) = false;
-            fprintf('Domain "%s" has more than 5 fake news instances. Marking as untrusted.\n', domain);
+            fprintf('Domínio "%s" tem mais de 5 instâncias de notícias falsas. Marcando como não confiável.\n', domain);
         end
     end
     
-    % Display the final domain trust list
-    disp('Domain Trust List:');
+    % Exibir a lista final de confiança de domínios
+    disp('Lista de Confiança dos Domínios:');
     disp(domainTrustList);
 end
 
-% Naive Bayes prediction function
+% Função de previsão do Naive Bayes
 function prediction = predictNaiveBayes(model, featureVector)
+    % Número de classes no modelo
     numClasses = numel(model.classLabels);
-    classLogProbs = log(model.priors);  % Log of priors
+    % Calcular os logaritmos das probabilidades a priori
+    classLogProbs = log(model.priors);
     
-    % Compute log likelihood for each class
+    % Calcular a verossimilhança logarítmica para cada classe
     for classIdx = 1:numClasses
         for featureIdx = 1:length(featureVector)
             if featureVector(featureIdx) == 1
@@ -91,11 +93,11 @@ function prediction = predictNaiveBayes(model, featureVector)
         end
     end
     
-    % Predict the class with the highest log probability
+    % Prever a classe com a maior probabilidade logarítmica
     [~, predictedClassIdx] = max(classLogProbs);  
     prediction = model.classLabels(predictedClassIdx); 
     
-    % Ensure prediction is in the correct format
+    % Garantir que a previsão esteja no formato correto
     if iscell(prediction)
         prediction = prediction{1};
     end

@@ -1,17 +1,54 @@
-function hash = string2hash(str)
+function hash = string2hash(str, type, seed)
     % Verificar se a entrada é uma string válida
     if ~isstring(str) || isempty(str) || str == "NA" || strtrim(str) == ""
         str = "default";
     end
-    
-    % Garantir que str seja tratado como string para evitar NaN
-    if ~ischar(str)
-        str = char(str);
+
+    % Converter para char se necessário
+    str = convertStringsToChars(str);
+
+    % Validar tipo de hash
+    validTypes = ["djb2", "sdbm", "md5", "sha1"];
+    if nargin < 2
+        type = 'djb2';
     end
 
-    % Usar algoritmo DJB2
-    hash = 5381; 
-    for i = 1:length(str)
-        hash = mod(hash * 33 + double(str(i)), 2^32);
+    if ~ismember(type, validTypes)
+        error('Tipo de hash desconhecido. Use "djb2", "sdbm", "md5" ou "sha1".');
+    end
+
+    % Usar semente no hash para variabilidade
+    if nargin < 3
+        seed = 1; % Semente padrão
+    end
+
+    hash = uint32(seed);  % Inicializa com a semente
+
+    switch type
+        case 'djb2'
+            % Algoritmo DJB2
+            for i = 1:numel(str)
+                hash = mod(hash * 33 + uint32(str(i)), 2^32 - 1); % Atualiza hash
+            end
+            
+        case 'sdbm'
+            % Algoritmo SDBM
+            for i = 1:numel(str)
+                hash = mod(hash * 65599 + uint32(str(i)), 2^32 - 1); % Atualiza hash
+            end
+            
+        case 'md5'
+            % MD5 usando Java
+            md = java.security.MessageDigest.getInstance('MD5');
+            md.update(uint8(str));
+            hashBytes = md.digest();
+            hash = mod(typecast(hashBytes(1:4), 'uint32'), 2^32 - 1);  % Extrai um valor numérico
+
+        case 'sha1'
+            % SHA1 usando Java
+            md = java.security.MessageDigest.getInstance('SHA-1');
+            md.update(uint8(str));
+            hashBytes = md.digest();
+            hash = mod(typecast(hashBytes(1:4), 'uint32'), 2^32 - 1);  % Extrai um valor numérico
     end
 end
