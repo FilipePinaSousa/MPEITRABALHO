@@ -34,7 +34,7 @@ function FamoustitlesWithBloomFilter(databaseFile)
         if ~wasAlreadyFamous
             fprintf('Nova notícia famosa: %s\n', data.title(i));
         else
-            fprintf('Notícia já famosa: %s\n', data.title(i));
+            fprintf('Antiga notícia famosa: %s\n', data.title(i));
         end
     end
 end

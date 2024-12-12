@@ -38,8 +38,7 @@ function naiveBayesModel(databaseFile)
             % Marcar entradas inválidas como NaN
             domainFeatures(i) = NaN;
             titleFeatures(i) = NaN;
-            fprintf('Entrada inválida na instância %d: Domain = "%s", Title = "%s"\n', ...
-                i, domains(i), titles(i));
+            fprintf('Entrada inválida na instância %d: Domain = "%s", Title = "%s"\n', i, domains(i), titles(i));
         end
         
         % Depuração: Exibir os valores dos hashes
