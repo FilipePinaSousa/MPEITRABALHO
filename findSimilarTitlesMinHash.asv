@@ -3,7 +3,7 @@ function findSimilarTitlesMinHash(databaseFile)
     titles = data.title;
 
     % MinHash parameters
-    numHashes = 500;
+    numHashes = 200;
     shinglesSize = 2;
     similarityThreshold = 0.1;
 
@@ -13,7 +13,7 @@ function findSimilarTitlesMinHash(databaseFile)
 
     % Process each title
     for i = 1:numTitles
-        title = preprocessTitle(titles(i));
+        title = data.title;
         shingles = generateShingles(title, shinglesSize);
         fprintf('Title %d shingles: %s\n', i, strjoin(string(shingles), ', ')); % Convert to string if needed
 
@@ -29,7 +29,7 @@ function findSimilarTitlesMinHash(databaseFile)
     userSignature = computeMinHashSignature(userShingles, numHashes);
     fprintf('User MinHash signature: %s\n', mat2str(userSignature));
 
-    % Calcula a distancia de jaccard usando assinaturas de minhash
+    % Calculate Jaccard similarity using MinHash signatures
     similarities = zeros(numTitles, 1);
     for i = 1:numTitles
         similarities(i) = computeMinHashSimilarity(userSignature, signatures(i, :));
@@ -78,13 +78,11 @@ function signature = computeMinHashSignature(shingles, numHashes)
     for i = 1:numHashes
         for j = 1:length(shingles)
             hashValue = string2hash(shingles{j}, 'djb2', i);
-            signature(i) = min(signature(i), hashValue);  % Update min for each hash
+            signature(i) = min(signature(i), hashValue);
         end
     end
     fprintf('Computed MinHash signature: %s\n', mat2str(signature));
 end
-
-
 
 function displaySimilarTitles(data, similarities, indices, threshold)
     % Display titles similar to the user input
