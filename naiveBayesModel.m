@@ -1,102 +1,89 @@
 function naiveBayesModel(databaseFile)
-    % Carregar os dados
+    % Load data
     data = readtable(databaseFile, 'TextType', 'string');
     
-    % Extrair títulos, domínios e rótulos
-    titles = strtrim(string(data.title))';
-    domains = data.source_domain';
-    labels = categorical(data.real)';  
+    % Extract and preprocess features
+    titles = lower(strtrim(string(data.title)))';
+    domains = lower(data.source_domain)';
+    labels = categorical(data.real)';
     
-    % Remover entradas inválidas (NA ou vazio) nos domínios
-    validRows = ~ismissing(domains) & domains ~= "NA";
+    % Remove invalid entries
+    validRows = ~ismissing(domains) & domains ~= "na" & titles ~= "";
     titles = titles(validRows);
     domains = domains(validRows);
     labels = labels(validRows);
     
-    % Remover títulos vazios ou inválidos
-    validTitles = titles ~= "";
-    titles = titles(validTitles);
-    domains = domains(validTitles);
-    labels = labels(validTitles);
-    
-    % Construir características usando string2hash
+    % Enhanced feature extraction
     numInstances = length(titles);
-    domainFeatures = zeros(numInstances, 1);
-    titleFeatures = zeros(numInstances, 1);
-
+    numFeatures = 10;  % Increased to 10 features
+    features = zeros(numInstances, numFeatures);
+    
     for i = 1:numInstances
-        % Validar os dados antes de gerar o hash
-        if strlength(domains(i)) > 0 && strlength(titles(i)) > 0
-            % Gerar hashes para domínios e títulos
-            domainHash = string2hash(domains(i));
-            titleHash = string2hash(titles(i));
-            
-            % Atribuir os valores dos hashes às características
-            domainFeatures(i) = domainHash; % Use o valor completo sem mod
-            titleFeatures(i) = titleHash;  % Use o valor completo sem mod
-        else
-            % Marcar entradas inválidas como NaN
-            domainFeatures(i) = NaN;
-            titleFeatures(i) = NaN;
-            fprintf('Entrada inválida na instância %d: Domain = "%s", Title = "%s"\n', i, domains(i), titles(i));
-        end
+        % Domain features
+        features(i,1) = string2hash(domains(i));
         
-        % Depuração: Exibir os valores dos hashes
-        if mod(i, 10) == 0
-            fprintf('Instância %d: Domain Hash = %d, Title Hash = %d\n', i, domainFeatures(i), titleFeatures(i));
+        % Title length feature
+        features(i,2) = strlength(titles(i));
+        
+        % Word count feature
+        features(i,3) = count(titles(i), ' ') + 1;
+        
+        % Punctuation ratio
+        features(i,4) = sum(isstrprop(char(titles(i)), 'punct')) / strlength(titles(i));
+        
+        % Uppercase ratio
+        features(i,5) = sum(isstrprop(char(titles(i)), 'upper')) / strlength(titles(i));
+        
+        % Average word length
+        words = split(titles(i));
+        features(i,6) = mean(strlength(words));
+        
+        % Special characters ratio
+        features(i,7) = sum(~isstrprop(char(titles(i)), 'alphanum')) / strlength(titles(i));
+        
+        % New features
+        % Exclamation mark count
+        features(i,8) = count(titles(i), "!");
+        
+        % Question mark count
+        features(i,9) = count(titles(i), "?");
+        
+        % Number ratio
+        features(i,10) = sum(isstrprop(char(titles(i)), 'digit')) / strlength(titles(i));
+    end
+    
+    % Advanced normalization using robust statistics
+    for j = 1:size(features,2)
+        if range(features(:,j)) > 0
+            median_val = median(features(:,j));
+            mad_val = mad(features(:,j), 1);
+            features(:,j) = (features(:,j) - median_val) / (mad_val + eps);
         end
     end
     
-    % Remover instâncias inválidas
-    validInstances = ~isnan(domainFeatures) & ~isnan(titleFeatures);
-    domainFeatures = domainFeatures(validInstances);
-    titleFeatures = titleFeatures(validInstances);
-    labels = labels(validInstances);
-    
-    % Normalizar as características
-    domainRange = max(domainFeatures) - min(domainFeatures);
-    if domainRange > 0
-        domainFeatures = (domainFeatures - min(domainFeatures)) / domainRange;
-    end
-    
-    titleRange = max(titleFeatures) - min(titleFeatures);
-    if titleRange > 0
-        titleFeatures = (titleFeatures - min(titleFeatures)) / titleRange;
-    end
-
-    % Calcular a variância e verificar
-    featureVariance = [var(domainFeatures), var(titleFeatures)];
-    disp('Variância de cada característica:');
-    disp(featureVariance);
-
-    if any(isnan(featureVariance))
-        error('Algumas variâncias são NaN. Verifique os dados de entrada e a geração das características.');
-    end
-    
-    % Concatenar as características para o modelo
-    features = [domainFeatures, titleFeatures];
-
-    % Obter as classes únicas e calcular a probabilidade a priori de cada classe
+    % Enhanced probability calculations
     classLabels = categories(labels);
     numClasses = numel(classLabels);
     priors = zeros(numClasses, 1);
     
     for i = 1:numClasses
-        priors(i) = sum(labels == classLabels(i)) / numInstances;
+        priors(i) = (sum(labels == classLabels(i)) + 3) / (numInstances + 6);
     end
     
-    % Calcular a probabilidade condicional de cada característica dado a classe
+    % Improved conditional probabilities with adaptive smoothing
     condProbs = zeros(numClasses, size(features, 2));
     for i = 1:numClasses
         classInstances = features(labels == classLabels(i), :);
-        condProbs(i, :) = mean(classInstances, 1); % Calcula diretamente a média condicional
+        feature_vars = var(classInstances);
+        smoothing_factors = 0.1 ./ (feature_vars + 0.1);
+        condProbs(i, :) = (mean(classInstances, 1) + smoothing_factors) ./ (1 + smoothing_factors);
     end
-
-    % Salvar o modelo treinado
+    
     model.priors = priors;
     model.condProbs = condProbs;
     model.classLabels = classLabels;
     model.features = features;
     save('naiveBayesModel.mat', 'model');
-    disp('Modelo treinado e salvo.');
+    
+    fprintf('Enhanced model trained with %d features.\n', numFeatures);
 end

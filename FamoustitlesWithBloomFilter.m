@@ -1,91 +1,45 @@
 function FamoustitlesWithBloomFilter(databaseFile)
-    % Processa um arquivo para identificar quais são as noticias mais famosas
+    % Load data
     data = readtable(databaseFile, 'TextType', 'string');
-    bf = createBloomFilter(100000); 
     
-    % Iterar sobre os dados
+    % Calculate optimal Bloom Filter parameters
+    expectedItems = height(data);
+    desiredFPRate = 0.01;
+    filterSize = ceil(-(expectedItems * log(desiredFPRate)) / (log(2)^2));
+    numHashes = ceil((filterSize/expectedItems) * log(2));
+    
+    % Initialize Bloom Filter
+    bf = false(1, filterSize);
+    
+    % Process articles
     for i = 1:height(data)
-        % Verificar valores ausentes
-        if ismissing(data.title(i)) || ismissing(data.tweet_num(i))
-            fprintf('Artigo inválido: Dados ausentes\n');
-            continue;
-        end
-        
-        % Criar uma chave única para o artigo
-        key = strcat(data.title(i), num2str(data.tweet_num(i)));
-        
-        % Determinar se a notícia é famosa
-        isFamous = data.tweet_num(i) > 50;
-        
-        % Se não for famosa, continue
-        if ~isFamous
-            fprintf('Notícia comum: %s\n', data.title(i));
-            continue;
-        end
-        
-        % Adicionar ao Bloom Filter
-        try
-            [bf, wasAlreadyFamous] = addToBloomFilter(bf, key);
-        catch ME
-            fprintf('Erro ao processar chave "%s": %s\n', key, ME.message);
-            continue;
-        end
-       
-        if ~wasAlreadyFamous
-            fprintf('Nova notícia famosa: %s\n', data.title(i));
-        else
-            fprintf('Antiga notícia famosa: %s\n', data.title(i));
+        if ~ismissing(data.title(i)) && ~ismissing(data.tweet_num(i))
+            key = strcat(data.title(i), '_', num2str(data.tweet_num(i)));
+            isFamous = data.tweet_num(i) > 50;
+            
+            if isFamous
+                [bf, wasPresent] = checkAndAddToFilter(bf, key, numHashes);
+                if ~wasPresent
+                    fprintf('New famous article: %s\n', data.title(i));
+                end
+            end
         end
     end
 end
 
-function bf = createBloomFilter(bfSize)
-    % Cria um Bloom Filter com o tamanho especificado
-    if bfSize <= 0
-        error('O tamanho do Bloom Filter deve ser positivo.');
-    end
-    bf = false(1, bfSize);
+function [bf, wasPresent] = checkAndAddToFilter(bf, key, numHashes)
+    positions = computeHashPositions(bf, key, numHashes);
+    wasPresent = all(bf(positions));
+    bf(positions) = true;
 end
 
-function [bf, wasAlreadyFamous] = addToBloomFilter(bf, articleKey)
-    % Adiciona uma chave ao Bloom Filter e verifica se já estava presente
-    wasAlreadyFamous = false; % Inicializar como falso por padrão
+function positions = computeHashPositions(bf, key, numHashes)
+    positions = zeros(1, numHashes);
+    filterSize = length(bf);
     
-    try
-        % Usa múltiplas funções hash para maior robustez
-        hash1 = robustHash(articleKey);
-        hash2 = robustHash(strcat(articleKey, 'salt'));
-        
-        % Calcula os índices usando os valores hash e mod
-        index1 = mod(hash1, length(bf)) + 1;
-        index2 = mod(hash2, length(bf)) + 1;
-
-        % Validar os índices
-        if index1 < 1 || index1 > length(bf)
-            fprintf('Erro: índice1 fora do intervalo (%d, tamanho: %d)\n', index1, length(bf));
-            return; % Retorna sem processar mais
-        end
-        if index2 < 1 || index2 > length(bf)
-            fprintf('Erro: índice2 fora do intervalo (%d, tamanho: %d)\n', index2, length(bf));
-            return; % Retorna sem processar mais
-        end
-
-        % Verifica se ambas as posições já estão marcadas
-        wasAlreadyFamous = bf(index1) && bf(index2);
-
-        % Marca as posições no Bloom Filter
-        bf(index1) = true;
-        bf(index2) = true;
-
-    catch ME
-        fprintf('Erro ao adicionar chave ao Bloom Filter: %s\n', ME.message);
-        % wasAlreadyFamous já é inicializado como false, então nenhuma ação adicional é necessária
+    for i = 1:numHashes
+        h1 = string2hash(key, 'djb2', i);
+        h2 = string2hash(key, 'sdbm', i + numHashes);
+        positions(i) = mod(h1 + i * h2, filterSize) + 1;
     end
-end
-
-function hashValue = robustHash(inputString)
-    % Nova função de hash baseada em soma de caracteres
-    inputString = char(inputString);
-    hashValue = sum(double(inputString) .* (1:numel(inputString)));
-    hashValue = mod(abs(hashValue), 1e9);
 end

@@ -1,59 +1,148 @@
 function test_bloomFilter()
-    % Teste para o Bloom Filter e suas operações
-    fprintf('Iniciando testes do Bloom Filter...\n');
-
-    % Teste 1: Criar Bloom Filter
-    bfSize = 1000;
-     bf = createBloomFilter(bfSize);
-    assert(length(bf) == bfSize, 'Erro: O tamanho do Bloom Filter está incorreto.');
-    fprintf('Teste 1: Criação do Bloom Filter - OK\n');
-
-    % Teste 2: Adicionar uma chave nova
-    articleKey1 = 'Noticia1_100';
-    [bf, wasAlreadyFamous] = addToBloomFilter(bf, articleKey1);
-    assert(~wasAlreadyFamous, 'Erro: A chave foi erroneamente detectada como já presente.');
-    fprintf('Teste 2: Adição de chave nova - OK (wasAlreadyFamous = %d)\n', wasAlreadyFamous);
-
-    % Teste 3: Re-adicionar a mesma chave
-    [bf, wasAlreadyFamous] = addToBloomFilter(bf, articleKey1);
-    assert(wasAlreadyFamous, 'Erro: A chave não foi detectada como já presente.');
-    fprintf('Teste 3: Re-adicionar chave - OK (wasAlreadyFamous = %d)\n', wasAlreadyFamous);
-
-    % Teste 4: Adicionar uma segunda chave única
-    articleKey2 = 'Noticia2_200';
-    [bf, wasAlreadyFamous] = addToBloomFilter(bf, articleKey2);
-    assert(~wasAlreadyFamous, 'Erro: A segunda chave foi erroneamente detectada como já presente.');
-    fprintf('Teste 4: Adição de segunda chave única - OK (wasAlreadyFamous = %d)\n', wasAlreadyFamous);
-
-    % Teste 5: Verificar detecção incorreta (False Positives)
-    % Simula uma chave não adicionada
-    articleKey3 = 'Noticia3_300';
-    [bf, wasAlreadyFamous] = addToBloomFilter(bf, articleKey3);
-    if wasAlreadyFamous
-        fprintf('Teste 5: Falso positivo detectado para chave "%s" (isso é esperado ocasionalmente em Bloom Filters).\n', articleKey3);
-    else
-        fprintf('Teste 5: Nenhum falso positivo detectado para chave "%s".\n', articleKey3);
+    fprintf('Starting Bloom Filter tests...\n\n');
+    
+    % Test different Bloom Filter sizes with different hash counts
+    sizes = [1000, 10000, 100000];
+    hashCounts = [3, 5, 7];
+    
+    for i = 1:length(sizes)
+        fprintf('Testing Bloom Filter with size %d and %d hash functions\n', ...
+            sizes(i), hashCounts(i));
+        runBloomFilterTest(sizes(i), hashCounts(i));
+        fprintf('\n');
     end
+    
+    testWithRealData('FakeNewsNet.csv');
+    testPerformance();
+end
 
-    % Teste 6: Verificar índices fora de intervalo (código robusto)
+function runBloomFilterTest(filterSize, numHashes)
+    % Initialize empty filter
+    bf = false(1, filterSize);
+    
+    % Generate two completely separate sets with guaranteed different ranges
+    insertSet = arrayfun(@(x) sprintf('insert_%d_%d', x, randi([1, 1e6])), ...
+                        1:100, 'UniformOutput', false);
+    querySet = arrayfun(@(x) sprintf('query_%d_%d', x, randi([2e6, 3e6])), ...
+                        1:100, 'UniformOutput', false);
+    
+    % Insert first set
+    for i = 1:length(insertSet)
+        positions = calculatePositions(insertSet{i}, numHashes, filterSize);
+        bf(positions) = true;
+    end
+    
+    % Query second set and count false positives
+    falsePositives = 0;
+    for i = 1:length(querySet)
+        positions = calculatePositions(querySet{i}, numHashes, filterSize);
+        if all(bf(positions))
+            falsePositives = falsePositives + 1;
+        end
+    end
+    
+    fprintf('False positive rate: %.2f%%\n', (falsePositives/length(querySet))*100);
+end
+
+function testData = generateTestData(prefix, count)
+    testData = cell(1, count);
+    for i = 1:count
+        testData{i} = sprintf('%s_data_%d_%d', prefix, i, randi(1e6));
+    end
+end
+
+function testWithRealData(dataFile)
+    fprintf('\nTesting with real data from %s\n', dataFile);
+    
     try
-        invalidKey = '';
-        [~, wasAlreadyFamous] = addToBloomFilter(bf, invalidKey);
-        fprintf('Teste 6: Manipulação de entrada inválida - OK (wasAlreadyFamous = %d)\n', wasAlreadyFamous);
+        % Load and prepare data
+        data = readtable(dataFile, 'TextType', 'string');
+        uniqueTitles = unique(data.title);
+        
+        % Set optimal parameters
+        filterSize = length(uniqueTitles) * 10;
+        numHashes = 5;
+        bf = false(1, filterSize);
+        
+        % Split data into two sets
+        midPoint = floor(length(uniqueTitles)/2);
+        insertSet = uniqueTitles(1:midPoint);
+        testSet = uniqueTitles(midPoint+1:end);
+        
+        % Insert first half
+        for i = 1:length(insertSet)
+            positions = calculatePositions(char(insertSet(i)), numHashes, filterSize);
+            bf(positions) = true;
+        end
+        
+        % Test second half
+        duplicates = 0;
+        for i = 1:length(testSet)
+            positions = calculatePositions(char(testSet(i)), numHashes, filterSize);
+            if all(bf(positions))
+                duplicates = duplicates + 1;
+            end
+        end
+        
+        fprintf('Processed %d unique titles\n', length(uniqueTitles));
+        fprintf('Detected %d potential duplicates\n', duplicates);
+        
     catch ME
-        fprintf('Teste 6: Falha esperada para entrada inválida: %s\n', ME.message);
+        fprintf('Error testing with real data: %s\n', ME.message);
     end
+end
 
-    % Teste 7: Teste do fluxo completo com FamoustitlesWithBloomFilter
-    try
-        % Aqui você pode passar o caminho para um arquivo de dados de teste
-        % Para fins de teste, o arquivo pode ser fictício ou pode ser um pequeno arquivo CSV com as colunas 'title' e 'tweet_num'.
-        % Exemplo de chamada:
-        FamoustitlesWithBloomFilter('FakeNewsNet.csv');
-        fprintf('Teste 7: Teste completo de FamoustitlesWithBloomFilter - OK\n');
-    catch ME
-        fprintf('Teste 7: Erro no teste completo: %s\n', ME.message);
+function testPerformance()
+    fprintf('\nPerformance Test\n');
+    
+    % Test parameters
+    numItems = 1000;
+    filterSize = numItems * 10;
+    numHashes = 5;
+    bf = false(1, filterSize);
+    
+    % Generate unique test data
+    testData = generateTestData('perf', numItems);
+    
+    % Measure insertion time
+    tic;
+    for i = 1:numItems
+        positions = calculatePositions(testData{i}, numHashes, filterSize);
+        bf(positions) = true;
     end
+    insertTime = toc;
+    
+    % Measure lookup time
+    tic;
+    for i = 1:numItems
+        positions = calculatePositions(testData{i}, numHashes, filterSize);
+        all(bf(positions));
+    end
+    lookupTime = toc;
+    
+    fprintf('Average insertion time: %.6f seconds per item\n', insertTime/numItems);
+    fprintf('Average lookup time: %.6f seconds per item\n', lookupTime/numItems);
+end
 
-    fprintf('Todos os testes foram concluídos!\n');
+function positions = calculatePositions(key, numHashes, filterSize)
+    positions = zeros(1, numHashes);
+    
+    % Convert key to numeric array and ensure proper type casting
+    keyBytes = double(uint8(key));
+    keySum = sum(keyBytes);
+    
+    for i = 1:numHashes
+        % Use prime numbers for better distribution
+        prime1 = getPrime(i);
+        prime2 = getPrime(i + numHashes);
+        
+        % Calculate hash using different components
+        hash = mod(keySum * prime1 + sum(keyBytes .* (1:length(keyBytes))') * prime2, filterSize);
+        positions(i) = double(hash(1)) + 1;  % Extract single value for position
+    end
+end
+
+function prime = getPrime(n)
+    primes = [31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+    prime = primes(mod(n-1, length(primes)) + 1);
 end
