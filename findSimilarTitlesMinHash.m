@@ -1,4 +1,4 @@
-function findSimilarTitlesMinHash(databaseFile)
+function findSimilarTitlesMinHash(databaseFile, inputTitle)
     % Load and preprocess data
     data = readtable(databaseFile, 'TextType', 'string');
     titles = data.title;
@@ -18,9 +18,8 @@ function findSimilarTitlesMinHash(databaseFile)
         signatures(i,:) = computeMinHashSignature(shingles, numHashes);
     end
     
-    % Get user input
-    userTitle = input('Enter title to check: ', 's');
-    userTitle = preprocessTitle(userTitle);
+    % Preprocess input title (no user input)
+    userTitle = preprocessTitle(inputTitle);
     userShingles = generateShingles(userTitle, shinglesSize);
     userSignature = computeMinHashSignature(userShingles, numHashes);
     
@@ -29,6 +28,7 @@ function findSimilarTitlesMinHash(databaseFile)
     [sortedSim, indices] = sort(similarities, 'descend');
     
     % Display results
+    fprintf('\nChecking similarities for: "%s"\n', inputTitle);
     displaySimilarTitles(data, sortedSim, indices, similarityThreshold);
 end
 

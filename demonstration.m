@@ -21,12 +21,18 @@ fprintf('\n');
 
 % 4. Find Similar Articles using MinHash
 fprintf('4. MinHash Similarity Detection...\n');
+
 % Example titles for similarity check
 sampleTitles = {
     'Breaking news about covid vaccine',
     'New study reveals vaccine effectiveness',
     'Weather forecast for tomorrow'
 };
+
+% Loop through predefined titles
+for i = 1:length(sampleTitles)
+    findSimilarTitlesMinHash('FakeNewsNet.csv', sampleTitles{i});
+end
 
 for i = 1:length(sampleTitles)
     fprintf('\nChecking similarities for: "%s"\n', sampleTitles{i});
