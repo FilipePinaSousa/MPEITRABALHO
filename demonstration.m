@@ -14,12 +14,16 @@ fprintf('Testing Naive Bayes Model...\n');
 test_naiveBayesModel('naiveBayesModel.mat');
 fprintf('\n');
 
-% 3. Initialize Bloom Filter for Popular Articles
+% 3. Domain Classification
+fprintf('\n5. Classifying News Domains...\n');
+classifyDomains(dataFile, 'naiveBayesModel.mat');
+
+% 4. Initialize Bloom Filter for Popular Articles
 fprintf('3. Processing Popular Articles with Bloom Filter...\n');
 FamoustitlesWithBloomFilter(dataFile);
 fprintf('\n');
 
-% 4. Find Similar Articles using MinHash
+% 5. Find Similar Articles using MinHash
 fprintf('4. MinHash Similarity Detection...\n');
 
 % Example titles for similarity check
@@ -41,7 +45,7 @@ classifyDomains(dataFile, 'naiveBayesModel.mat');
 % 6. Final Summary
 fprintf('\n=== System Performance Summary ===\n');
 fprintf('- Naive Bayes Classification completed\n');
-fprintf('- Popular articles identified with Bloom Filter\n');
-fprintf('- Similar articles detected with MinHash\n');
 fprintf('- Domain trust levels evaluated\n');
+fprintf('- Similar articles detected with MinHash\n');
+fprintf('- Popular articles identified with Bloom Filter\n');
 fprintf('\nDemo completed successfully!\n');
