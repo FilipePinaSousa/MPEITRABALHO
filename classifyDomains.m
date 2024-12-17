@@ -16,11 +16,11 @@ function classifyDomains(databaseFile, naiveBayesModel)
         domain = string(data.source_domain{i});
         
         % Exibição para depuração para verificar o domínio extraído
-        fprintf('Entrada %d - Domínio extraído: "%s"\n', i, domain);
+        % fprintf('Entrada %d - Domínio extraído: "%s"\n', i, domain);
         
         % Pular domínios inválidos
         if strcmp(domain, 'Invalid URL')
-            fprintf('Pulando domínio inválido na entrada %d: "%s"\n', i, domain);
+            % fprintf('Pulando domínio inválido na entrada %d: "%s"\n', i, domain);
             continue;
         end
         
@@ -89,10 +89,10 @@ function classifyDomains(databaseFile, naiveBayesModel)
         % Condição: mais do dobro de notícias confiáveis do que notícias falsas
         if trustedCount > 2 * fakeCount
             domainTrustList.IsTrusted(i) = true; % Marca como confiável
-            fprintf('Domínio "%s" é confiável (mais do dobro de notícias reais).\n', domain);
+            % fprintf('Domínio "%s" é confiável (mais do dobro de notícias reais).\n', domain);
         else
             domainTrustList.IsTrusted(i) = false; % Marca como não confiável
-            fprintf('Domínio "%s" não é confiável (não tem mais do dobro de notícias reais).\n', domain);
+            % fprintf('Domínio "%s" não é confiável (não tem mais do dobro de notícias reais).\n', domain);
         end
     end
     

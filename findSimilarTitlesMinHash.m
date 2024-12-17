@@ -1,70 +1,93 @@
-function findSimilarTitlesMinHash(databaseFile, inputTitle)
+function findSimilarTitlesMinHash(databaseFile)
     % Load and preprocess data
     data = readtable(databaseFile, 'TextType', 'string');
     titles = data.title;
-    
+
     % MinHash parameters
     numHashes = 100;
     shinglesSize = 2;
     similarityThreshold = 0.1;
-    
+
     % Generate signatures matrix
     signatures = zeros(height(data), numHashes);
-    
+
+    % Initialize waitbar
+    h = waitbar(0, 'Processing titles...');
+
     % Process each title
     for i = 1:height(data)
         title = preprocessTitle(titles(i));
         shingles = generateShingles(title, shinglesSize);
         signatures(i,:) = computeMinHashSignature(shingles, numHashes);
+        
+        % Update waitbar
+        waitbar(i/height(data), h);
     end
-    
-    % Preprocess input title (no user input)
-    userTitle = preprocessTitle(inputTitle);
+
+    % Close waitbar
+    close(h);
+
+    % Get user input
+    userTitle = input('Enter title to check: ', 's');
+    userTitle = preprocessTitle(userTitle);
     userShingles = generateShingles(userTitle, shinglesSize);
-    userSignature = computeMinHashSignature(userShingles, numHashes);
-    
+
+    % Initialize similarity calculation waitbar
+    h = waitbar(0, 'Calculating similarities...');
+
     % Find similar titles
-    similarities = computeWordBasedSimilarity(userTitle, titles);
+    similarities = computeWordBasedSimilarity(userTitle, titles, h);
     [sortedSim, indices] = sort(similarities, 'descend');
-    
+
+    % Close waitbar
+    close(h);
+
     % Display results
-    fprintf('\nChecking similarities for: "%s"\n', inputTitle);
     displaySimilarTitles(data, sortedSim, indices, similarityThreshold);
 end
 
-function similarity = computeWordBasedSimilarity(userTitle, titles)
-    % Initialize similarity vector
+function similarity = computeWordBasedSimilarity(userTitle, titles, h)
     similarity = zeros(length(titles), 1);
     
-    % Convert user title to word set
-    userWords = lower(split(userTitle));
-    userWords = unique(userWords);
+    % Normalize strings
+    userTitle = normalizeString(userTitle);
+    titles = arrayfun(@normalizeString, titles);
     
-    % Compare with each title
     for i = 1:length(titles)
-        % Convert current title to word set
-        titleWords = lower(split(titles(i)));
-        titleWords = unique(titleWords);
+        % Check for exact match
+        if strcmp(userTitle, titles(i))
+            similarity(i) = 1.0;
+            continue;
+        end
         
-        % Calculate Jaccard similarity using unique for set operations
-        allWords = [userWords; titleWords];
-        uniqueWords = unique(allWords);
-        intersection = length(userWords) + length(titleWords) - length(uniqueWords);
-        unionSize = length(uniqueWords);
+        % Word-based similarity
+        userWords = unique(split(userTitle));
+        titleWords = unique(split(titles(i)));
         
-        if unionSize > 0
-            similarity(i) = intersection / unionSize;
-        else
-            similarity(i) = 0;
+        intersection = sum(ismember(userWords, titleWords));
+        union = length(unique([userWords; titleWords]));
+        
+        if union > 0
+            similarity(i) = intersection / union;
+        end
+
+        % Update waitbar every 100 iterations
+        if mod(i, 100) == 0
+            waitbar(i/length(titles), h);
         end
     end
 end
 
+function str = normalizeString(str)
+    % Remove quotes and normalize spaces
+    str = lower(strip(str));
+    str = strrep(str, '''', '');
+    str = regexprep(str, '\s+', ' ');
+end
 function title = preprocessTitle(title)
     title = lower(title);
     title = regexprep(title, '[^\w\s]', '');
 end
-
 function shingles = generateShingles(text, k)
     shingles = {};
     words = strsplit(text);
@@ -77,7 +100,6 @@ function shingles = generateShingles(text, k)
         shingles{1} = strjoin(words);
     end
 end
-
 function signature = computeMinHashSignature(shingles, numHashes)
     signature = inf(1, numHashes);
     for i = 1:numHashes
@@ -87,7 +109,6 @@ function signature = computeMinHashSignature(shingles, numHashes)
         end
     end
 end
-
 function displaySimilarTitles(data, similarities, indices, threshold)
     fprintf('\nSimilar titles found:\n');
     for i = 1:min(5,length(indices))

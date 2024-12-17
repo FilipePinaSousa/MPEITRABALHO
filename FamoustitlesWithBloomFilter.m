@@ -20,7 +20,7 @@ function FamoustitlesWithBloomFilter(databaseFile)
             if isFamous
                 [bf, wasPresent] = checkAndAddToFilter(bf, key, numHashes);
                 if ~wasPresent
-                    fprintf('New famous article: %s\n', data.title(i));
+                    % fprintf('New famous article: %s\n', data.title(i));
                 end
             end
         end
