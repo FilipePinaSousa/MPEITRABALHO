@@ -38,9 +38,6 @@ for i = 1:length(sampleTitles)
     findSimilarTitlesMinHash('FakeNewsNet.csv', sampleTitles{i});
 end
 
-% 5. Domain Classification
-fprintf('\n5. Classifying News Domains...\n');
-classifyDomains(dataFile, 'naiveBayesModel.mat');
 
 % 6. Final Summary
 fprintf('\n=== System Performance Summary ===\n');
