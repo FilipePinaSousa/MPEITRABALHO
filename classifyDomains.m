@@ -1,24 +1,18 @@
 function classifyDomains(databaseFile, naiveBayesModel)
-    % Ler os dados do arquivo e carregar o modelo Naive Bayes
     data = readtable(databaseFile, 'TextType', 'string');
     load(naiveBayesModel, 'model'); 
-    
-    % Inicializar lista para armazenar informações de confiança dos domínios
+
     domainTrustList = table('Size', [0 2], 'VariableTypes', {'string', 'logical'}, 'VariableNames', {'Domain', 'IsTrusted'});
     
-    % Inicializar mapas para contar o número de notícias confiáveis (real = 1) e falsas (real = 0) por domínio
     fakeNewsCount = containers.Map('KeyType', 'char', 'ValueType', 'int32');
     trustedNewsCount = containers.Map('KeyType', 'char', 'ValueType', 'int32');
     
-    % Processar cada artigo
     for i = 1:height(data)
-        % Extrair o domínio usando a função personalizada extractDomain
         domain = string(data.source_domain{i});
         
         % Exibição para depuração para verificar o domínio extraído
         % fprintf('Entrada %d - Domínio extraído: "%s"\n', i, domain);
         
-        % Pular domínios inválidos
         if strcmp(domain, 'Invalid URL')
             % fprintf('Pulando domínio inválido na entrada %d: "%s"\n', i, domain);
             continue;
@@ -31,23 +25,18 @@ function classifyDomains(databaseFile, naiveBayesModel)
             title = "default"; 
         end
         
-        % Validar título
         if any(ismissing(title)) || strlength(title) == 0
             title = "default";
         end
         
-        % Vetor de características (usando hashes do domínio e do título)
         domainHash = string2hash(domain);
         titleHash = string2hash(title);
         featureVector = [mod(domainHash, 100), mod(titleHash, 100)];
         
-        % Fazer a previsão usando o modelo Naive Bayes
         prediction = predictNaiveBayes(model, featureVector);
         
-        % Extrair o valor real (real = 1 ou real = 0)
         realValue = data.real(i);
         
-        % Atualizar os contadores de notícias confiáveis (real = 1) e falsas (real = 0)
         if realValue == 1
             if isKey(trustedNewsCount, domain)
                 trustedNewsCount(domain) = trustedNewsCount(domain) + 1;
@@ -62,31 +51,26 @@ function classifyDomains(databaseFile, naiveBayesModel)
             end
         end
         
-        % Adicionar à lista de confiança de domínios somente se ainda não estiver na lista
         if ~any(domainTrustList.Domain == domain)
-            domainTrustList = [domainTrustList; {domain, false}]; % Inicializa como não confiável
+            domainTrustList = [domainTrustList; {domain, false}];
         end
     end
     
-    % Atualizar a lista de confiança dos domínios com base no critério
     for i = 1:height(domainTrustList)
         domain = domainTrustList.Domain{i};
         
-        % Verificar se a chave existe no mapa de notícias confiáveis (trustedNewsCount)
         if isKey(trustedNewsCount, domain)
             trustedCount = trustedNewsCount(domain);
         else
-            trustedCount = 0; % Caso a chave não exista, considera 0
+            trustedCount = 0;
         end
         
-        % Verificar se a chave existe no mapa de notícias falsas (fakeNewsCount)
         if isKey(fakeNewsCount, domain)
             fakeCount = fakeNewsCount(domain);
         else
-            fakeCount = 0; % Caso a chave não exista, considera 0
+            fakeCount = 0;
         end
         
-        % Condição: mais do dobro de notícias confiáveis do que notícias falsas
         if trustedCount > 2 * fakeCount
             domainTrustList.IsTrusted(i) = true; % Marca como confiável
             % fprintf('Domínio "%s" é confiável (mais do dobro de notícias reais).\n', domain);
@@ -96,19 +80,14 @@ function classifyDomains(databaseFile, naiveBayesModel)
         end
     end
     
-    % Exibir a lista final de confiança de domínios
     disp('Lista de Confiança dos Domínios:');
     disp(domainTrustList);
 end
 
-% Função de previsão do Naive Bayes
 function prediction = predictNaiveBayes(model, featureVector)
-    % Número de classes no modelo
     numClasses = numel(model.classLabels);
-    % Calcular os logaritmos das probabilidades a priori
     classLogProbs = log(model.priors);
     
-    % Calcular a verossimilhança logarítmica para cada classe
     for classIdx = 1:numClasses
         for featureIdx = 1:length(featureVector)
             if featureVector(featureIdx) == 1
@@ -117,11 +96,9 @@ function prediction = predictNaiveBayes(model, featureVector)
         end
     end
     
-    % Prever a classe com a maior probabilidade logarítmica
     [~, predictedClassIdx] = max(classLogProbs);  
     prediction = model.classLabels(predictedClassIdx); 
     
-    % Garantir que a previsão esteja no formato correto
     if iscell(prediction)
         prediction = prediction{1};
     end

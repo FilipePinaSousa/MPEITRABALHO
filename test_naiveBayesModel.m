@@ -1,18 +1,14 @@
 function test_naiveBayesModel(modelFile)
-    % Load data and model
     testData = readtable('FakeNewsNet.csv', 'TextType', 'string');
     load(modelFile, 'model');
 
-    % Print initial statistics
     fprintf('Number of instances: %d\n', height(testData));
     fprintf('Number of model classes: %d\n\n', length(model.classLabels));
 
-    % Preprocess test data
     titles = lower(strtrim(string(testData.title)));
     domains = lower(testData.source_domain);
     labels = categorical(testData.real);
 
-    % Generate features matching the training model
     numInstances = length(titles);
     numFeatures = 10;  % Matched with training features
     features = zeros(numInstances, numFeatures);
@@ -35,7 +31,6 @@ function test_naiveBayesModel(modelFile)
         features(i,10) = sum(isstrprop(char(titles(i)), 'digit')) / strlength(titles(i));
     end
 
-    % Normalize features using robust statistics
     for j = 1:size(features,2)
         if range(features(:,j)) > 0
             median_val = median(features(:,j));
@@ -44,7 +39,6 @@ function test_naiveBayesModel(modelFile)
         end
     end
 
-    % Make predictions
     scores = zeros(numInstances, length(model.classLabels));
     for i = 1:numInstances
         for j = 1:length(model.classLabels)
@@ -55,7 +49,6 @@ function test_naiveBayesModel(modelFile)
     [~, predictionIndices] = max(scores, [], 2);
     predictions = model.classLabels(predictionIndices);
 
-    % Calculate accuracy
     accuracy = mean(predictions == labels);
     fprintf('Model accuracy: %.2f%%\n', accuracy * 100);
 end

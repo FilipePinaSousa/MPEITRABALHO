@@ -1,17 +1,13 @@
 function FamoustitlesWithBloomFilter(databaseFile)
-    % Load data
     data = readtable(databaseFile, 'TextType', 'string');
     
-    % Calculate optimal Bloom Filter parameters
     expectedItems = height(data);
     desiredFPRate = 0.01;
     filterSize = ceil(-(expectedItems * log(desiredFPRate)) / (log(2)^2));
     numHashes = ceil((filterSize/expectedItems) * log(2));
     
-    % Initialize Bloom Filter
     bf = false(1, filterSize);
     
-    % Process articles
     for i = 1:height(data)
         if ~ismissing(data.title(i)) && ~ismissing(data.tweet_num(i))
             key = strcat(data.title(i), '_', num2str(data.tweet_num(i)));
@@ -20,7 +16,7 @@ function FamoustitlesWithBloomFilter(databaseFile)
             if isFamous
                 [bf, wasPresent] = checkAndAddToFilter(bf, key, numHashes);
                 if ~wasPresent
-                    % fprintf('New famous article: %s\n', data.title(i));
+                    fprintf('New famous article: %s\n', data.title(i));
                 end
             end
         end

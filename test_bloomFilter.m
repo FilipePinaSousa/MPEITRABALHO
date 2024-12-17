@@ -17,22 +17,16 @@ function test_bloomFilter()
 end
 
 function runBloomFilterTest(filterSize, numHashes)
-    % Initialize empty filter
     bf = false(1, filterSize);
     
-    % Generate two completely separate sets with guaranteed different ranges
-    insertSet = arrayfun(@(x) sprintf('insert_%d_%d', x, randi([1, 1e6])), ...
-                        1:100, 'UniformOutput', false);
-    querySet = arrayfun(@(x) sprintf('query_%d_%d', x, randi([2e6, 3e6])), ...
-                        1:100, 'UniformOutput', false);
+    insertSet = arrayfun(@(x) sprintf('insert_%d_%d', x, randi([1, 1e6])),1:100, 'UniformOutput', false);
+    querySet = arrayfun(@(x) sprintf('query_%d_%d', x, randi([2e6, 3e6])),1:100, 'UniformOutput', false);
     
-    % Insert first set
     for i = 1:length(insertSet)
         positions = calculatePositions(insertSet{i}, numHashes, filterSize);
         bf(positions) = true;
     end
     
-    % Query second set and count false positives
     falsePositives = 0;
     for i = 1:length(querySet)
         positions = calculatePositions(querySet{i}, numHashes, filterSize);
@@ -55,27 +49,22 @@ function testWithRealData(dataFile)
     fprintf('\nTesting with real data from %s\n', dataFile);
     
     try
-        % Load and prepare data
         data = readtable(dataFile, 'TextType', 'string');
         uniqueTitles = unique(data.title);
         
-        % Set optimal parameters
         filterSize = length(uniqueTitles) * 10;
         numHashes = 5;
         bf = false(1, filterSize);
         
-        % Split data into two sets
         midPoint = floor(length(uniqueTitles)/2);
         insertSet = uniqueTitles(1:midPoint);
         testSet = uniqueTitles(midPoint+1:end);
         
-        % Insert first half
         for i = 1:length(insertSet)
             positions = calculatePositions(char(insertSet(i)), numHashes, filterSize);
             bf(positions) = true;
         end
         
-        % Test second half
         duplicates = 0;
         for i = 1:length(testSet)
             positions = calculatePositions(char(testSet(i)), numHashes, filterSize);
@@ -101,10 +90,8 @@ function testPerformance()
     numHashes = 5;
     bf = false(1, filterSize);
     
-    % Generate unique test data
     testData = generateTestData('perf', numItems);
     
-    % Measure insertion time
     tic;
     for i = 1:numItems
         positions = calculatePositions(testData{i}, numHashes, filterSize);
@@ -112,7 +99,6 @@ function testPerformance()
     end
     insertTime = toc;
     
-    % Measure lookup time
     tic;
     for i = 1:numItems
         positions = calculatePositions(testData{i}, numHashes, filterSize);
@@ -127,18 +113,15 @@ end
 function positions = calculatePositions(key, numHashes, filterSize)
     positions = zeros(1, numHashes);
     
-    % Convert key to numeric array and ensure proper type casting
     keyBytes = double(uint8(key));
     keySum = sum(keyBytes);
     
     for i = 1:numHashes
-        % Use prime numbers for better distribution
         prime1 = getPrime(i);
         prime2 = getPrime(i + numHashes);
         
-        % Calculate hash using different components
         hash = mod(keySum * prime1 + sum(keyBytes .* (1:length(keyBytes))') * prime2, filterSize);
-        positions(i) = double(hash(1)) + 1;  % Extract single value for position
+        positions(i) = double(hash(1)) + 1;
     end
 end
 
