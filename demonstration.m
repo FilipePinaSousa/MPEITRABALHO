@@ -34,11 +34,6 @@ for i = 1:length(sampleTitles)
     findSimilarTitlesMinHash('FakeNewsNet.csv', sampleTitles{i});
 end
 
-for i = 1:length(sampleTitles)
-    fprintf('\nChecking similarities for: "%s"\n', sampleTitles{i});
-    findSimilarTitlesMinHash(dataFile);
-end
-
 % 5. Domain Classification
 fprintf('\n5. Classifying News Domains...\n');
 classifyDomains(dataFile, 'naiveBayesModel.mat');
